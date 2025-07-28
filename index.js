@@ -44,13 +44,44 @@ const { clear, debug, port, host } = flags;
 <html lang="en">
 <meta charset="utf-8" />
 <title>livepdf-server</title>
-<style>html,body{height:100%;margin:0}embed{width:100%;height:100%}</style>
-<embed id="pdf" src="/pdf" type="application/pdf" />
+<style>html,body{height:100%;margin:0}#viewer{height:100%;overflow:auto}</style>
+<div id="viewer"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.269/pdf.min.js"></script>
 <script>
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.269/pdf.worker.min.js';
+
+const viewer = document.getElementById('viewer');
+let scrollPos = 0;
+
+function render(url) {
+  pdfjsLib.getDocument(url).promise.then(doc => {
+    viewer.innerHTML = '';
+    const num = doc.numPages;
+    const renderPage = n => {
+      doc.getPage(n).then(page => {
+        const canvas = document.createElement('canvas');
+        viewer.appendChild(canvas);
+        const ctx = canvas.getContext('2d');
+        const viewport = page.getViewport({ scale: 1.5 });
+        canvas.height = viewport.height;
+        canvas.width = viewport.width;
+        page.render({ canvasContext: ctx, viewport }).promise.then(() => {
+          if (n < num) renderPage(n + 1);
+        });
+      });
+    };
+    renderPage(1);
+    viewer.scrollTop = scrollPos;
+  });
+}
+
+render('/pdf');
+
 const ws = new WebSocket('ws://' + location.host);
-ws.onmessage = (ev) => {
+ws.onmessage = ev => {
   if (ev.data === 'reload') {
-    document.getElementById('pdf').src = '/pdf?' + Date.now();
+    scrollPos = viewer.scrollTop;
+    render('/pdf?' + Date.now());
   }
 };
 </script>`);
