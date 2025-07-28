@@ -71,7 +71,7 @@ ws.onmessage = (ev) => {
 
 	chokidar.watch(absolutePdfPath).on('change', () => {
 		wss.clients.forEach(client => {
-			if (client.readyState === 1) client.send('reload');
+			if (client.readyState === WebSocket.OPEN) client.send('reload');
 		});
 	});
 })();
