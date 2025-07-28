@@ -1,6 +1,6 @@
 # livepdf-server
 
-`livepdf-server` is a Node.js server that serves a local PDF file over HTTP, allowing you to view it from other devices via a web browser. When the PDF file is updated, the browser automatically reloads to display the latest version.
+`livepdf-server` is a small utility that serves a local PDF over HTTP so you can access it from any device on your network. When the PDF changes, connected browsers automatically reload to display the latest version.
 
 ## Features
 
@@ -8,6 +8,7 @@
 - View the PDF simply by accessing the server URL
 - Automatically reloads the browser to show the latest PDF when the file is updated
 - Accessible from other devices (PC, smartphone, tablet, etc.) on the same local network
+- Binds to `0.0.0.0` so other devices on your LAN can connect
 
 ## Usage
 
@@ -21,7 +22,7 @@ or
 livepdf-server <path-to-pdf> [options]
 ```
 
-### Example options
+### Options
 
 - `--port <number>` : Specify the server port (default: 3000)
 - `--host <address>` : Specify the address to bind (default: 0.0.0.0)
