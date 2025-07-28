@@ -47,10 +47,23 @@ const { clear, debug, port, host } = flags;
 <style>html,body{height:100%;margin:0}embed{width:100%;height:100%}</style>
 <embed id="pdf" src="/pdf" type="application/pdf" />
 <script>
+const KEY = 'livepdf-scroll';
+const pdf = document.getElementById('pdf');
+const restore = () => {
+  const y = sessionStorage.getItem(KEY);
+  if (y !== null) window.scrollTo(0, parseFloat(y));
+};
+window.addEventListener('load', restore);
+pdf.addEventListener('load', restore);
+window.addEventListener('beforeunload', () => {
+  sessionStorage.setItem(KEY, window.scrollY);
+});
 const ws = new WebSocket('ws://' + location.host);
 ws.onmessage = (ev) => {
   if (ev.data === 'reload') {
-    document.getElementById('pdf').src = '/pdf?' + Date.now();
+    sessionStorage.setItem(KEY, window.scrollY);
+    pdf.addEventListener('load', restore, { once: true });
+    pdf.src = '/pdf?' + Date.now();
   }
 };
 </script>`);

@@ -7,6 +7,7 @@
 - Serve a specified PDF file via an HTTP server
 - View the PDF simply by accessing the server URL
 - Automatically reloads the browser to show the latest PDF when the file is updated
+- Remembers your position in the PDF when reloading
 - Accessible from other devices (PC, smartphone, tablet, etc.) on the same local network
 - Binds to `0.0.0.0` so other devices on your LAN can connect
 
