@@ -14,7 +14,16 @@ const flags = {
 		shortFlag: `d`,
 		desc: `Print debug info`
 	},
-
+	port: {
+		type: `number`,
+		default: 3000,
+		desc: `Port to bind the server`
+	},
+	host: {
+		type: `string`,
+		default: '0.0.0.0',
+		desc: `Host address to bind`
+	}
 };
 
 const commands = {
@@ -22,7 +31,7 @@ const commands = {
 };
 
 const helpText = meowHelp({
-	name: `calai`,
+	name: `livepdf-server`,
 	flags,
 	commands
 });
