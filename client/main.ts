@@ -17,9 +17,6 @@ async function renderPdf() {
   isRendering = true;
 
   try {
-    // Save current scroll position
-    const scrollY = window.scrollY;
-
     // Load the PDF with cache buster
     const urlWithCacheBuster = `${pdfUrl}?t=${Date.now()}`;
     const loadingTask = pdfjsLib.getDocument({
@@ -28,10 +25,10 @@ async function renderPdf() {
 
     const pdf = await loadingTask.promise;
     
-    // Clear the container
-    container.innerHTML = '';
+    // Create an off-screen fragment to hold the new pages
+    const fragment = document.createDocumentFragment();
 
-    // Render all pages
+    // Render all pages into the fragment
     for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
       const page = await pdf.getPage(pageNum);
       const viewport = page.getViewport({ scale: 1.5 });
@@ -43,7 +40,7 @@ async function renderPdf() {
       canvas.height = viewport.height;
       canvas.width = viewport.width;
 
-      container.appendChild(canvas);
+      fragment.appendChild(canvas);
 
       const renderContext = {
         canvasContext: context,
@@ -53,9 +50,16 @@ async function renderPdf() {
       await page.render(renderContext).promise;
     }
 
-    // Restore scroll position
-    window.scrollTo(0, scrollY);
-    console.log('PDF rendered, scroll restored to:', scrollY);
+    // Capture the latest scroll position right before the DOM swap
+    const currentScrollY = window.scrollY;
+
+    // Synchronously swap the container contents and restore scroll
+    // This prevents the browser from painting the intermediate empty state
+    container.innerHTML = '';
+    container.appendChild(fragment);
+    window.scrollTo(0, currentScrollY);
+    
+    console.log('PDF rendered, scroll restored to:', currentScrollY);
 
   } catch (err) {
     console.error('Error rendering PDF:', err);
