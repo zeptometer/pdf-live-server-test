@@ -1,0 +1,38 @@
+{
+  "name": "pdf-live-server-test",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "playwright test",
+    "dev": "concurrently \"vite\" \"tsx server/index.ts ./dummy.pdf\""
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/zeptometer/pdf-live-server-test.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/zeptometer/pdf-live-server-test/issues"
+  },
+  "homepage": "https://github.com/zeptometer/pdf-live-server-test#readme",
+  "description": "",
+  "dependencies": {
+    "chokidar": "^5.0.0",
+    "cors": "^2.8.6",
+    "express": "^5.2.1",
+    "pdfjs-dist": "^6.0.227"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.61.0",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/node": "^26.0.0",
+    "concurrently": "^10.0.3",
+    "tsx": "^4.22.4",
+    "typescript": "^6.0.3",
+    "vite": "^8.0.16"
+  }
+}
