@@ -1,6 +1,7 @@
 import express from 'express';
 import chokidar from 'chokidar';
 import cors from 'cors';
+import qrcode from 'qrcode-terminal';
 import { resolve } from 'path';
 import { existsSync } from 'fs';
 import { exec } from 'child_process';
@@ -106,8 +107,10 @@ app.listen(port, '0.0.0.0', () => {
             let dnsName = status.Self?.DNSName;
             if (dnsName) {
               if (dnsName.endsWith('.')) dnsName = dnsName.slice(0, -1);
+              const url = `https://${dnsName}`;
               console.log('✅ Tailscale serve configured successfully!');
-              console.log(`\n🎉 Public URL (Tailscale): https://${dnsName}\n`);
+              console.log(`\n🎉 Public URL (Tailscale): ${url}\n`);
+              qrcode.generate(url, { small: true });
               return;
             }
           } catch (e) {
