@@ -85,7 +85,7 @@ app.get('/events', (req, res) => {
   });
 });
 
-app.listen(port, '0.0.0.0', () => {
+const server = app.listen(port, '0.0.0.0', () => {
   console.log(`PDF Live Server listening on http://localhost:${port}`);
   console.log(`Watching PDF: ${absolutePdfPath}`);
 
@@ -120,5 +120,18 @@ app.listen(port, '0.0.0.0', () => {
         console.log('✅ Tailscale serve configured successfully!');
       });
     });
+  }
+});
+
+server.on('error', (err: any) => {
+  console.error('FULL ERROR:', err);
+  if (err.code === 'EADDRINUSE') {
+    console.error(`\n❌ Error: Port ${port} is already in use.`);
+    console.error(`This usually means another instance of pdf-live-server is already running.`);
+    console.error(`Please kill the existing process or use a different port (e.g. -p ${port + 1}).\n`);
+    process.exit(1);
+  } else {
+    console.error(`\n❌ Server error:`, err);
+    process.exit(1);
   }
 });

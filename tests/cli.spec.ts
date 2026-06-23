@@ -35,9 +35,10 @@ if (args[0] === 'status' && args[1] === '--json') {
   // Spawn the server with the mocked PATH
   const env = { ...process.env, PATH: `${mockBinDir}:${process.env.PATH}` };
   
-  const serverProcess = cp.spawn('npx', ['tsx', 'server/index.ts', '-p', '8082', '--tailscale', 'dummy.pdf'], {
+  const serverProcess = cp.spawn('node', ['--import', 'tsx', 'server/index.ts', '-p', '8089', '--tailscale', 'dummy.pdf'], {
     env,
-    cwd: process.cwd()
+    cwd: process.cwd(),
+    detached: true,
   });
 
   let stdoutData = '';
@@ -53,7 +54,7 @@ if (args[0] === 'status' && args[1] === '--json') {
       stdoutData += text;
       
       // Check if it printed the URL
-      const hasUrl = stdoutData.includes('https://mock-test.tailnet.ts.net:8082');
+      const hasUrl = stdoutData.includes('https://mock-test.tailnet.ts.net:8089');
       // Check if it printed QR code blocks (e.g., ▄ or █)
       const hasQrBlocks = stdoutData.includes('▄') || stdoutData.includes('█');
       
@@ -65,9 +66,51 @@ if (args[0] === 'status' && args[1] === '--json') {
   });
 
   // Cleanup
-  serverProcess.kill('SIGKILL');
+  if (serverProcess.pid) {
+    try {
+      process.kill(-serverProcess.pid, 'SIGKILL');
+    } catch (e) {}
+  }
   fs.rmSync(mockBinDir, { recursive: true, force: true });
 
   // Assertions
   expect(outputContainsQR).toBe(true);
+});
+
+test('Server exits gracefully with an error message when port is already in use', async () => {
+  // 1. Create a dummy server listening on port 8090 to simulate an existing process
+  const net = require('net');
+  const dummyServer = net.createServer();
+  
+  await new Promise<void>((resolve, reject) => {
+    dummyServer.listen(8090, '0.0.0.0', () => resolve());
+    dummyServer.on('error', reject);
+  });
+
+  try {
+    // 2. Try to start pdf-live-server on the same port
+    const serverProcess = cp.spawn('node', ['--import', 'tsx', 'server/index.ts', '-p', '8090', 'dummy.pdf'], {
+      cwd: process.cwd(),
+      env: process.env,
+      detached: true,
+    });
+
+    let stderrData = '';
+    serverProcess.stderr?.on('data', (data) => {
+      stderrData += data.toString();
+    });
+
+    // 3. Wait for the process to exit
+    const exitCode = await new Promise<number | null>((resolve) => {
+      serverProcess.on('exit', (code) => resolve(code));
+    });
+
+    // 4. Assert that it exited with code 1 and printed the friendly error message
+    expect(exitCode).toBe(1);
+    expect(stderrData).toContain('Error: Port 8090 is already in use');
+    expect(stderrData).toContain('another instance of pdf-live-server is already running');
+  } finally {
+    // 5. Clean up the dummy server
+    await new Promise<void>((resolve) => dummyServer.close(() => resolve()));
+  }
 });
