@@ -98,8 +98,24 @@ app.listen(port, '0.0.0.0', () => {
       if (stderr) {
         console.error('Tailscale serve stderr:', stderr);
       }
-      console.log('✅ Tailscale serve configured successfully!');
-      console.log(`You can now access the viewer securely over your Tailnet.`);
+      
+      exec('tailscale status --json', (err2, stdout2) => {
+        if (!err2) {
+          try {
+            const status = JSON.parse(stdout2);
+            let dnsName = status.Self?.DNSName;
+            if (dnsName) {
+              if (dnsName.endsWith('.')) dnsName = dnsName.slice(0, -1);
+              console.log('✅ Tailscale serve configured successfully!');
+              console.log(`\n🎉 Public URL (Tailscale): https://${dnsName}\n`);
+              return;
+            }
+          } catch (e) {
+            // ignore JSON parse error
+          }
+        }
+        console.log('✅ Tailscale serve configured successfully!');
+      });
     });
   }
 });
