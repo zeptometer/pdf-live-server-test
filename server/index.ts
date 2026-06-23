@@ -3,22 +3,26 @@ import chokidar from 'chokidar';
 import cors from 'cors';
 import { resolve } from 'path';
 import { existsSync } from 'fs';
+import { exec } from 'child_process';
 
 let targetPdf = '';
 let port = 8080;
+let useTailscale = false;
 
 const args = process.argv.slice(2);
 for (let i = 0; i < args.length; i++) {
   if (args[i] === '-p' && i + 1 < args.length) {
     port = parseInt(args[i + 1], 10);
     i++;
+  } else if (args[i] === '-t' || args[i] === '--tailscale') {
+    useTailscale = true;
   } else if (!targetPdf) {
     targetPdf = args[i];
   }
 }
 
 if (!targetPdf) {
-  console.error('Usage: npx tsx server/index.ts [-p <port>] <path_to_pdf>');
+  console.error('Usage: npx tsx server/index.ts [-p <port>] [-t|--tailscale] <path_to_pdf>');
   process.exit(1);
 }
 
@@ -83,4 +87,19 @@ app.get('/events', (req, res) => {
 app.listen(port, '0.0.0.0', () => {
   console.log(`PDF Live Server listening on http://localhost:${port}`);
   console.log(`Watching PDF: ${absolutePdfPath}`);
+
+  if (useTailscale) {
+    console.log('Configuring Tailscale serve...');
+    exec(`tailscale serve --bg http://127.0.0.1:${port}`, (error, stdout, stderr) => {
+      if (error) {
+        console.error('Failed to configure Tailscale serve:', error.message);
+        return;
+      }
+      if (stderr) {
+        console.error('Tailscale serve stderr:', stderr);
+      }
+      console.log('✅ Tailscale serve configured successfully!');
+      console.log(`You can now access the viewer securely over your Tailnet.`);
+    });
+  }
 });
