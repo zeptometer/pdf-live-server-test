@@ -91,7 +91,7 @@ app.listen(port, '0.0.0.0', () => {
 
   if (useTailscale) {
     console.log('Configuring Tailscale serve...');
-    exec(`tailscale serve --bg http://127.0.0.1:${port}`, (error, stdout, stderr) => {
+    exec(`tailscale serve --bg --https ${port} http://127.0.0.1:${port}`, (error, stdout, stderr) => {
       if (error) {
         console.error('Failed to configure Tailscale serve:', error.message);
         return;
@@ -107,7 +107,7 @@ app.listen(port, '0.0.0.0', () => {
             let dnsName = status.Self?.DNSName;
             if (dnsName) {
               if (dnsName.endsWith('.')) dnsName = dnsName.slice(0, -1);
-              const url = `https://${dnsName}`;
+              const url = port === 443 ? `https://${dnsName}` : `https://${dnsName}:${port}`;
               console.log('✅ Tailscale serve configured successfully!');
               console.log(`\n🎉 Public URL (Tailscale): ${url}\n`);
               qrcode.generate(url, { small: true });

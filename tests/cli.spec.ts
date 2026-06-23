@@ -53,7 +53,7 @@ if (args[0] === 'status' && args[1] === '--json') {
       stdoutData += text;
       
       // Check if it printed the URL
-      const hasUrl = stdoutData.includes('https://mock-test.tailnet.ts.net');
+      const hasUrl = stdoutData.includes('https://mock-test.tailnet.ts.net:8082');
       // Check if it printed QR code blocks (e.g., ▄ or █)
       const hasQrBlocks = stdoutData.includes('▄') || stdoutData.includes('█');
       
