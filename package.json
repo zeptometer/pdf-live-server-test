@@ -2,6 +2,9 @@
   "name": "pdf-live-server-test",
   "version": "1.0.0",
   "main": "index.js",
+  "bin": {
+    "pdf-live-server": "./bin/pdf-live-server.js"
+  },
   "scripts": {
     "test": "playwright test",
     "dev": "concurrently \"vite\" \"tsx server/index.ts ./dummy.pdf\"",

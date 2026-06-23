@@ -25,24 +25,33 @@ cd pdf-live-server-test
 npm install
 ```
 
-## 使い方
+### グローバルコマンドとしてインストール
 
-以下のコマンドでサーバーを起動します。
+以下のコマンドをプロジェクトディレクトリで実行すると、システム上のどこからでも `pdf-live-server` コマンドが使えるようになります。
 
 ```bash
-npx tsx server/index.ts [-p <ポート番号>] [-t|--tailscale] <監視するPDFファイルのパス>
+npm link
+# または npm install -g .
+```
+
+## 使い方
+
+インストール後、監視したいPDFのパスを指定してコマンドを実行します。
+
+```bash
+pdf-live-server [-p <ポート番号>] [-t|--tailscale] <監視するPDFファイルのパス>
 ```
 
 * `-p`: （オプション）サーバーのポート番号を指定します。デフォルトは `8080` です。
-* `-t, --tailscale`: （オプション）起動時に `tailscale serve` を実行し、自動で HTTPS ルーティングを設定します。
+* `-t, --tailscale`: （オプション）起動時に `tailscale serve` を実行し、自動で HTTPS ルーティングとQRコードを生成します。
 
 **実行例:**
 ```bash
 # 8765番ポートで paper.pdf を監視する
-npx tsx server/index.ts -p 8765 path/to/your/paper.pdf
+pdf-live-server -p 8765 path/to/your/paper.pdf
 
 # Tailscale経由でセキュアにアクセスできるよう自動設定する
-npx tsx server/index.ts --tailscale path/to/your/paper.pdf
+pdf-live-server --tailscale path/to/your/paper.pdf
 ```
 
 起動後、ブラウザで `http://localhost:8080` （または指定したポート）にアクセスしてください。PDFファイルが別のエディタなどで上書き保存されるたびに、ブラウザのプレビューが自動で更新されます。
