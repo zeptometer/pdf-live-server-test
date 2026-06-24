@@ -50,3 +50,32 @@ test('PDF reloads and maintains scroll position on file change', async ({ page }
   scrollY = await page.evaluate(() => window.scrollY);
   expect(scrollY).toBe(500);
 });
+
+test.use({ deviceScaleFactor: 2 });
+test('Canvas resolution scales with devicePixelRatio', async ({ page }) => {
+  const dummyPdfPath = resolve(process.cwd(), 'dummy.pdf');
+  if (!fs.existsSync(dummyPdfPath)) {
+    fs.writeFileSync(dummyPdfPath, '');
+  }
+
+  await page.goto('/');
+  await page.waitForEvent('console', msg => msg.text().includes('PDF rendered'));
+
+  const canvas = page.locator('canvas').first();
+  await expect(canvas).toBeVisible();
+
+  // Evaluate the canvas properties
+  const { width, styleWidth } = await canvas.evaluate((node: HTMLCanvasElement) => {
+    return {
+      width: node.width,
+      styleWidth: node.style.width
+    };
+  });
+
+  // styleWidth should be in format "123px"
+  const cssWidth = parseInt(styleWidth.replace('px', ''), 10);
+  
+  // The physical width should be 2x the CSS width since deviceScaleFactor is 2
+  expect(width).toBeGreaterThan(cssWidth);
+  expect(Math.round(width / cssWidth)).toBe(2);
+});
