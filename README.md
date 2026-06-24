@@ -1,70 +1,70 @@
 # PDF Live Server
 
-論文執筆（LaTeX等）をサポートするための、PDFのライブプレビュー用Webサーバーです。
-対象となるPDFファイルが更新されたことを検知してブラウザ側へ自動リロードを指示し、その際に**現在のスクロール位置を維持したまま再描画**を行います。
-また、TailscaleなどのVPNやリバースプロキシ経由での閲覧を想定し、シンプルなHTTPサーバーとして設計されています。
+A web server for live previewing PDFs, designed to support paper writing (e.g., LaTeX).
+It detects updates to a target PDF file and automatically instructs the browser to reload the view, **maintaining the current scroll position** after the redraw.
+It is built as a simple HTTP server, making it ideal for viewing over a local network or VPN/reverse proxies like Tailscale.
 
-## 特徴
+## Features
 
-* 🚀 **リアルタイム更新**: ファイルが更新されると、即座にブラウザ上のPDFがリロードされます。
-* 📜 **スクロール位置の維持**: リロード後もスクロール位置がトップに戻らず、現在読んでいる位置をキープします。
-* 🌐 **HTTPベースの配信**: 特別な設定なしで、ローカルネットワークやTailscale経由で別端末からプレビューを閲覧可能です。
-* 🔍 **堅牢なファイル監視**: LaTeXコンパイラによる「ファイルの削除・再作成（アトミック保存）」などによる監視外れを防ぐため、ディレクトリレベルの監視とポーリングを組み合わせています。
+* 🚀 **Real-time Updates**: When the file is updated, the PDF in the browser reloads instantly.
+* 📜 **Scroll Position Retention**: After reloading, the view does not jump back to the top; it stays exactly where you were reading.
+* 🌐 **HTTP-based Serving**: You can view the preview from other devices on the local network or via Tailscale without any special configuration.
+* 🔍 **Robust File Watching**: Combines directory-level watching and polling to prevent the watcher from losing track due to atomic file saves (deletion and recreation) typically performed by LaTeX compilers.
 
-## 必須要件
+## Prerequisites
 
-* Node.js (v18以降推奨)
+* Node.js (v18 or later recommended)
 * npm
 
-## インストール
+## Installation
 
-リポジトリをクローンし、依存関係をインストールしてください。
+Clone the repository and install the dependencies:
 
 ```bash
 cd pdf-live-server
 npm install
 ```
 
-### グローバルコマンドとしてインストール
+### Install as a Global Command
 
-以下のコマンドをプロジェクトディレクトリで実行すると、システム上のどこからでも `pdf-live-server` コマンドが使えるようになります。
+Running the following command in the project directory allows you to use the `pdf-live-server` command from anywhere on your system:
 
 ```bash
 npm link
-# または npm install -g .
+# or npm install -g .
 ```
 
-## 使い方
+## Usage
 
-インストール後、監視したいPDFのパスを指定してコマンドを実行します。
+After installation, run the command by specifying the path to the PDF you want to watch.
 
 ```bash
-pdf-live-server [-t|--tailscale] <監視するPDFファイルのパス>
+pdf-live-server [-t|--tailscale] <path-to-target-pdf>
 ```
 
-* `-t, --tailscale`: （オプション）起動時に `tailscale serve` を実行し、自動で HTTPS ルーティングとQRコードを生成します。
+* `-t, --tailscale`: (Optional) Executes `tailscale serve` on startup to automatically generate HTTPS routing and a QR code.
 
-**実行例:**
+**Examples:**
 ```bash
-# デフォルトポートで paper.pdf を監視する
+# Watch paper.pdf on the default port
 pdf-live-server path/to/your/paper.pdf
 
-# Tailscale経由でセキュアにアクセスできるよう自動設定する
+# Automatically configure secure access via Tailscale
 pdf-live-server --tailscale path/to/your/paper.pdf
 ```
 
-起動後、コンソールに表示されたURL（例: `http://localhost:8080`）にブラウザでアクセスしてください。PDFファイルが別のエディタなどで上書き保存されるたびに、ブラウザのプレビューが自動で更新されます。
+After startup, open the URL displayed in the console (e.g., `http://localhost:8080`) in your browser. Whenever the PDF file is overwritten and saved by another editor or compiler, the browser preview will update automatically.
 
-## テスト
+## Testing
 
-本プロジェクトには Playwright を用いた E2E（End-to-End）テストが組み込まれています。
-テストでは実際に仮想ブラウザを立ち上げ、「ファイルの疑似的な書き換え → PDFの再取得と再描画 → スクロール位置が維持されているかの確認」までを自動で検証します。
+This project includes End-to-End (E2E) tests using Playwright.
+The tests launch a virtual browser and automatically verify the entire flow: "pseudo-modification of the file → refetching and redrawing the PDF → verifying that the scroll position is maintained."
 
 ```bash
 npm run test
 ```
 
-## 使用技術
+## Technologies Used
 
 * **Frontend**: TypeScript, Vite, PDF.js
 * **Backend**: Express (Node.js), chokidar, Server-Sent Events (SSE)
