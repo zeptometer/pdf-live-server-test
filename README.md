@@ -21,7 +21,7 @@
 リポジトリをクローンし、依存関係をインストールしてください。
 
 ```bash
-cd pdf-live-server-test
+cd pdf-live-server
 npm install
 ```
 
