@@ -1,34 +1,47 @@
-# PDFライブプレビューサーバー 仕様書
+# PDF Live Server Specification
 
-## 1. 概要
-論文執筆中のPDFファイルを監視し、HTTP経由でブラウザから閲覧できるようにする軽量なWebサーバー。
-PDFが更新されると、ブラウザ側の表示を自動的にリロードし、リロード後も閲覧していたスクロール位置（ページ位置）を保持する。
+## 1. Overview
+A lightweight web server designed to watch PDF files during paper writing (e.g., LaTeX) and serve them for live preview via a web browser.
+When the target PDF is updated, it automatically instructs the browser to reload the PDF while **maintaining the current scroll position (page position)** after the reload.
 
-## 2. 主な要件
-* **PDFファイルの配信**: 指定されたターゲットとなるPDFファイルをHTTP経由で配信する。
-* **ファイルの変更監視（Watch）**: サーバー側で対象のPDFファイルを監視し、更新（LaTeXコンパイル等による上書き保存）を検知する。
-* **自動リロードと位置保持**:
-  * PDFの更新を検知後、現在閲覧しているクライアント（ブラウザ）へ通知を送る。
-  * ブラウザは通知を受け取ると、画面をリフレッシュ（またはPDFデータのみを再読み込み）する。
-  * 再読み込み時、ユーザーが直前まで閲覧していたページ番号やスクロール位置を自動で復元し、シームレスな閲覧体験を提供する。
-* **ネットワーク・インフラ**:
-  * Tailscale経由でのアクセスを前提としているため、サーバー側でのアクセス制限（Basic認証など）やHTTPS化などの作り込みは不要。
-  * 単純なローカルWebサーバーとして動作（例: `0.0.0.0:8080` をリッスン）すればよい。
+## 2. Core Requirements
+* **PDF Serving**: Serves the specified target PDF file over HTTP.
+* **File Watching**: Watches the target PDF file on the server side and detects updates (e.g., atomic overwrites by LaTeX compilers).
+* **Automatic Reload & Position Retention**:
+  * Upon detecting a PDF update, sends a notification to the connected client (browser).
+  * The browser refreshes the PDF data upon receiving the notification.
+  * During the refresh, it automatically restores the exact page number and scroll position the user was viewing, providing a seamless reading experience.
+* **Network & Infrastructure**:
+  * Designed to run as a simple local web server binding to `0.0.0.0`, accessible from other devices via local network or Tailscale.
+  * No built-in authentication or manual HTTPS configuration is required.
+* **Dynamic Port Allocation**:
+  * The server attempts to listen on port `8080` by default.
+  * If `8080` is in use, it automatically falls back to an available random port provided by the OS.
+* **Tailscale Integration (`-t` / `--tailscale`)**:
+  * Can be launched with the `--tailscale` flag to automatically expose the local server to the Tailnet via `tailscale serve`.
+  * Automatically handles Tailscale port conflicts and generates/prints a QR code in the terminal for easy access from mobile or tablet devices.
 
-## 3. システム構成案
-* **バックエンド (Webサーバー)**:
-  * **言語候補**: Node.js, Python, Goなどから選択。
-  * **主な役割**:
-    1. ビューアとなるHTML/JS/CSSの配信。
-    2. 対象PDFの配信。
-    3. ファイル監視機能（inotify等）。※コンパイル中に複数回の変更イベントが飛ぶことがあるため、デバウンス（Debounce）処理を入れることが望ましい。
-    4. クライアントへの変更通知チャネル。シンプルな一方向通信で済むため **Server-Sent Events (SSE)** の利用がおすすめ。
-* **フロントエンド (ブラウザ側)**:
-  * **描画方法**: 単純な `<embed>` や `<iframe>` では、ブラウザごとの標準PDFビューアが使われスクロール位置の取得・復元がプログラムから制御できない場合が多い。そのため、**PDF.js** を利用してブラウザ上でPDFをレンダリングするアプローチが必須となる。
-  * **状態管理**: SSEで「更新」イベントを受け取った際、現在のスクロール位置（Y座標）やページ番号を変数に退避し、新しいPDFを描画後にその位置へスクロールさせる処理を実装する。
+## 3. System Architecture
+* **Backend (Web Server)**:
+  * **Language**: Node.js (TypeScript)
+  * **Key Responsibilities**:
+    1. Serve the frontend assets (HTML/JS/CSS).
+    2. Serve the target PDF file.
+    3. File watching using `chokidar`. It handles atomic saves by watching the parent directory and filtering for the specific file, implementing debounce logic to prevent multiple rapid reload events during compilation.
+    4. Client notification channel using **Server-Sent Events (SSE)** for simple, unidirectional real-time communication.
+    5. OS-level automatic port fallback when the target port encounters an `EADDRINUSE` error.
+* **Frontend (Browser)**:
+  * **Rendering**: Instead of using `<embed>` or `<iframe>` which lack programmatic scroll control, **PDF.js** is used to render the PDF natively in the browser.
+  * **State Management**: Upon receiving an "update" event via SSE, it caches the current scroll position (Y-coordinate), re-renders the new PDF, and restores the scroll position.
 
-## 4. 技術スタック・仕様詳細
-* **開発言語**: フロントエンド・バックエンドともに **TypeScript** を使用する。
-* **バックエンド・フレームワーク**: Node.js + Express 等の軽量な構成を想定。
-* **対象PDFの指定方法**: サーバー起動時にコマンドライン引数で対象のPDFパスを指定する（例: `npm start -- ./paper.pdf` または `npx tsx server.ts ./paper.pdf`）。
-* **フロントエンドの実装**: TypeScript と PDF.js を組み合わせて実装。必要に応じてVite等の軽量なビルドツールを導入し、開発体験を向上させる。
+## 4. Technical Stack & Implementation Details
+* **Language**: **TypeScript** is used for both frontend and backend.
+* **Backend Framework**: Node.js + Express.
+* **Command Line Interface (CLI)**: 
+  * Provided as an installable CLI tool (`pdf-live-server`).
+  * Target PDF and flags are specified via command-line arguments (e.g., `pdf-live-server --tailscale ./paper.pdf`).
+* **Frontend Build Tool**: **Vite** is used to bundle the frontend code and PDF.js workers.
+* **Testing**: 
+  * Automated End-to-End (E2E) testing powered by **Playwright**.
+  * Validates core functionalities including CLI flag parsing, dynamic port fallback, Tailscale configuration, and frontend scroll retention.
+* **Development Methodology**: Developed strictly following a Test-Driven Development (TDD) cycle (Red-Green-Refactor) as mandated by the project guidelines (`AGENTS.md`).

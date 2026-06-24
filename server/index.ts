@@ -7,15 +7,11 @@ import { existsSync } from 'fs';
 import { exec } from 'child_process';
 
 let targetPdf = '';
-let port = 8080;
 let useTailscale = false;
 
 const args = process.argv.slice(2);
 for (let i = 0; i < args.length; i++) {
-  if (args[i] === '-p' && i + 1 < args.length) {
-    port = parseInt(args[i + 1], 10);
-    i++;
-  } else if (args[i] === '-t' || args[i] === '--tailscale') {
+  if (args[i] === '-t' || args[i] === '--tailscale') {
     useTailscale = true;
   } else if (!targetPdf) {
     targetPdf = args[i];
@@ -23,7 +19,7 @@ for (let i = 0; i < args.length; i++) {
 }
 
 if (!targetPdf) {
-  console.error('Usage: npx tsx server/index.ts [-p <port>] [-t|--tailscale] <path_to_pdf>');
+  console.error('Usage: npx tsx server/index.ts [-t|--tailscale] <path_to_pdf>');
   process.exit(1);
 }
 
@@ -85,53 +81,67 @@ app.get('/events', (req, res) => {
   });
 });
 
-const server = app.listen(port, '0.0.0.0', () => {
-  console.log(`PDF Live Server listening on http://localhost:${port}`);
-  console.log(`Watching PDF: ${absolutePdfPath}`);
-
-  if (useTailscale) {
-    console.log('Configuring Tailscale serve...');
-    exec(`tailscale serve --bg --https ${port} http://127.0.0.1:${port}`, (error, stdout, stderr) => {
-      if (error) {
-        console.error('Failed to configure Tailscale serve:', error.message);
+function startTailscale(localPort: number, tsPort: number = 443) {
+  console.log(`Configuring Tailscale serve on port ${tsPort}...`);
+  exec(`tailscale serve --bg --https ${tsPort} http://127.0.0.1:${localPort}`, (error, stdout, stderr) => {
+    if (error || (stderr && stderr.includes('in use'))) {
+      if (tsPort === 443 || (error && error.message.includes('in use')) || (stderr && stderr.includes('in use'))) {
+        const nextPort = Math.floor(Math.random() * (60000 - 10000 + 1)) + 10000;
+        console.warn(`⚠️ Tailscale port ${tsPort} might be in use or failed. Retrying with random port ${nextPort}...`);
+        startTailscale(localPort, nextPort);
         return;
       }
-      if (stderr) {
-        console.error('Tailscale serve stderr:', stderr);
-      }
-      
-      exec('tailscale status --json', (err2, stdout2) => {
-        if (!err2) {
-          try {
-            const status = JSON.parse(stdout2);
-            let dnsName = status.Self?.DNSName;
-            if (dnsName) {
-              if (dnsName.endsWith('.')) dnsName = dnsName.slice(0, -1);
-              const url = port === 443 ? `https://${dnsName}` : `https://${dnsName}:${port}`;
-              console.log('✅ Tailscale serve configured successfully!');
-              console.log(`\n🎉 Public URL (Tailscale): ${url}\n`);
-              qrcode.generate(url, { small: true });
-              return;
-            }
-          } catch (e) {
-            // ignore JSON parse error
-          }
-        }
-        console.log('✅ Tailscale serve configured successfully!');
-      });
-    });
-  }
-});
+      console.error('Failed to configure Tailscale serve:', error?.message || stderr);
+      return;
+    }
+    console.log('✅ Tailscale serve configured successfully!');
 
-server.on('error', (err: any) => {
-  console.error('FULL ERROR:', err);
-  if (err.code === 'EADDRINUSE') {
-    console.error(`\n❌ Error: Port ${port} is already in use.`);
-    console.error(`This usually means another instance of pdf-live-server is already running.`);
-    console.error(`Please kill the existing process or use a different port (e.g. -p ${port + 1}).\n`);
-    process.exit(1);
-  } else {
-    console.error(`\n❌ Server error:`, err);
-    process.exit(1);
-  }
-});
+    exec('tailscale status --json', (statusError, statusStdout) => {
+      if (statusError) {
+        console.error('Failed to get Tailscale status:', statusError.message);
+        return;
+      }
+      try {
+        const status = JSON.parse(statusStdout);
+        const dnsName = status.Self?.DNSName?.replace(/\.$/, '');
+        if (dnsName) {
+          const publicUrl = `https://${dnsName}${tsPort === 443 ? '' : ':' + tsPort}`;
+          console.log(`🎉 Public URL (Tailscale): ${publicUrl}`);
+          qrcode.generate(publicUrl, { small: true });
+        }
+      } catch (parseError) {
+        console.error('Failed to parse Tailscale status JSON:', parseError);
+      }
+    });
+  });
+}
+
+function startServer(targetPort: number) {
+  const server = app.listen(targetPort, '0.0.0.0', () => {
+    const address = server.address();
+    const actualPort = typeof address === 'object' && address ? address.port : targetPort;
+    console.log(`PDF Live Server listening on http://localhost:${actualPort}`);
+    console.log(`Watching PDF: ${absolutePdfPath}`);
+
+    if (useTailscale) {
+      startTailscale(actualPort, 443);
+    }
+  });
+
+  server.on('error', (err: any) => {
+    if (err.code === 'EADDRINUSE') {
+      if (targetPort !== 0) {
+        console.warn(`\n⚠️ Port ${targetPort} is in use. Falling back to a random available port...`);
+        startServer(0);
+      } else {
+        console.error(`\n❌ Failed to bind to any port.`);
+        process.exit(1);
+      }
+    } else {
+      console.error(`\n❌ Server error:`, err);
+      process.exit(1);
+    }
+  });
+}
+
+startServer(8080);
