@@ -55,7 +55,7 @@ pdf-live-server path/to/your/paper.pdf
 pdf-live-server --tailscale path/to/your/paper.pdf
 
 # Automatically configure public access via ngrok
-export NGROK_AUTHTOKEN="your_auth_token_here"
+ngrok config add-authtoken <your_auth_token_here>
 pdf-live-server --ngrok path/to/your/paper.pdf
 ```
 

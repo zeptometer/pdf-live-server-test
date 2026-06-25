@@ -26,14 +26,6 @@ if (useTailscale && useNgrok) {
   process.exit(1);
 }
 
-if (useNgrok && !process.env.NGROK_AUTHTOKEN) {
-  console.error('❌ Error: NGROK_AUTHTOKEN is not set.');
-  console.error('To use the --ngrok option, you must sign up at https://dashboard.ngrok.com');
-  console.error('and set your authtoken as an environment variable:');
-  console.error('export NGROK_AUTHTOKEN="your_auth_token_here"');
-  process.exit(1);
-}
-
 if (!targetPdf) {
   console.error('Usage: npx tsx server/index.ts [-t|--tailscale] [-n|--ngrok] <path_to_pdf>');
   process.exit(1);
@@ -136,14 +128,23 @@ async function startNgrok(localPort: number) {
   console.log('Configuring ngrok serve...');
   try {
     const ngrok = await import('@ngrok/ngrok');
-    const listener = await ngrok.connect({ addr: localPort, authtoken_from_env: true });
+    const listener = await ngrok.connect({ addr: localPort });
     const publicUrl = listener.url();
     if (publicUrl) {
       console.log(`🎉 Public URL (ngrok): ${publicUrl}`);
       qrcode.generate(publicUrl, { small: true });
     }
   } catch (error: any) {
-    console.error('❌ Failed to configure ngrok serve:', error?.message || error);
+    const errorMessage = error?.message || String(error);
+    if (errorMessage.includes('not authenticated') || errorMessage.includes('ERR_NGROK_4018')) {
+      console.error('\n❌ Error: ngrok session is not authenticated.');
+      console.error('To use the --ngrok option, please register your authtoken by running:\n');
+      console.error('  ngrok config add-authtoken <YOUR_AUTHTOKEN>\n');
+      console.error('You can find your token at: https://dashboard.ngrok.com/get-started/your-authtoken');
+      process.exit(1);
+    } else {
+      console.error('❌ Failed to configure ngrok serve:', errorMessage);
+    }
   }
 }
 

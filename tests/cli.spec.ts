@@ -155,6 +155,10 @@ test('Server exits with error if --ngrok is used without NGROK_AUTHTOKEN', async
   // Ensure NGROK_AUTHTOKEN is unset for this test
   const env = { ...process.env };
   delete env.NGROK_AUTHTOKEN;
+  // Isolate OS config paths so it doesn't accidentally find the real ngrok config on the host
+  env.HOME = '/tmp/empty-home-for-test';
+  env.USERPROFILE = '/tmp/empty-home-for-test';
+  env.LOCALAPPDATA = '/tmp/empty-home-for-test';
 
   const serverProcess = cp.spawn('node', ['--import', 'tsx', 'server/index.ts', '--ngrok', 'dummy.pdf'], { env });
   
@@ -170,7 +174,7 @@ test('Server exits with error if --ngrok is used without NGROK_AUTHTOKEN', async
   });
 
   expect(exitCode).not.toBe(0);
-  expect(stderrData).toContain('NGROK_AUTHTOKEN is not set');
-  expect(stderrData).toContain('export NGROK_AUTHTOKEN=');
+  expect(stderrData).toContain('ngrok session is not authenticated');
+  expect(stderrData).toContain('ngrok config add-authtoken');
 });
 
