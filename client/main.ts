@@ -11,7 +11,8 @@ const pdfUrl = '/target.pdf';
 
 let isRendering = false;
 let isHorizontal = false;
-let isZoomFit = true;
+type ZoomMode = '100' | 'width' | 'height';
+let zoomMode: ZoomMode = 'width';
 let currentPageIndex = 0;
 const canvases: HTMLCanvasElement[] = [];
 
@@ -46,9 +47,9 @@ async function renderPdf() {
       const page = await pdf.getPage(pageNum);
       
       let scale = 1.5;
-      if (isZoomFit) {
+      if (zoomMode === 'width' || zoomMode === 'height') {
         const baseViewport = page.getViewport({ scale: 1.0 });
-        if (isHorizontal) {
+        if (zoomMode === 'height') {
           scale = window.innerHeight / baseViewport.height;
         } else {
           // Use clientWidth to avoid horizontal scrollbars interfering
@@ -68,7 +69,7 @@ async function renderPdf() {
       canvas.style.width = Math.floor(viewport.width) + "px";
       // height is left to 'auto' via CSS to preserve aspect ratio
       
-      canvas.classList.add(isZoomFit ? 'zoom-fit' : 'zoom-100');
+      canvas.classList.add(`zoom-${zoomMode}`);
       newCanvases.push(canvas);
       fragment.appendChild(canvas);
 
@@ -125,8 +126,8 @@ btnScroll?.addEventListener('click', () => {
   document.body.classList.toggle('horizontal-mode', isHorizontal);
   btnScroll.textContent = isHorizontal ? 'Scroll: Horiz' : 'Scroll: Vert';
   
-  if (isZoomFit) {
-    // Re-render because the fit dimension changed from Width to Height
+  if (zoomMode !== '100') {
+    // Re-render because the fit dimension might need recalculation
     renderPdf();
   } else {
     // Re-align to current page immediately
@@ -137,8 +138,16 @@ btnScroll?.addEventListener('click', () => {
 });
 
 btnZoom?.addEventListener('click', () => {
-  isZoomFit = !isZoomFit;
-  btnZoom.textContent = isZoomFit ? 'Zoom: Fit' : 'Zoom: 100%';
+  if (zoomMode === 'width') zoomMode = 'height';
+  else if (zoomMode === 'height') zoomMode = '100';
+  else zoomMode = 'width';
+  
+  const labels = {
+    'width': 'Zoom: Width',
+    'height': 'Zoom: Height',
+    '100': 'Zoom: 100%'
+  };
+  btnZoom.textContent = labels[zoomMode];
   renderPdf(); // Re-render to get crisp text at the new scale
 });
 

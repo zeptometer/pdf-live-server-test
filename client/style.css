@@ -52,20 +52,23 @@ canvas {
 }
 
 /* Zoom modes */
-canvas.zoom-fit {
+canvas.zoom-width {
   width: 100% !important;
   max-width: 100%;
+  height: auto !important;
 }
 
-body.horizontal-mode canvas.zoom-fit {
-  width: auto !important;
+canvas.zoom-height {
   height: 100vh !important;
   max-height: 100vh;
+  width: auto !important;
   max-width: none !important;
 }
 
 canvas.zoom-100 {
   max-width: none; /* Let the intrinsic width apply */
+  width: auto;
+  height: auto;
 }
 
 /* Premium Floating Controls */
