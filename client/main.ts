@@ -42,7 +42,8 @@ async function renderPdf() {
       canvas.width = Math.floor(viewport.width * outputScale);
       canvas.height = Math.floor(viewport.height * outputScale);
       canvas.style.width = Math.floor(viewport.width) + "px";
-      canvas.style.height =  Math.floor(viewport.height) + "px";
+      // Intentionally not setting canvas.style.height here so that CSS `height: auto` 
+      // preserves the aspect ratio when constrained by `max-width: 100%`.
 
       fragment.appendChild(canvas);
 
