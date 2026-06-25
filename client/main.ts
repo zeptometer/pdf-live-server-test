@@ -24,7 +24,11 @@ const visibilityObserver = new IntersectionObserver((entries) => {
       maxRatio = entry.intersectionRatio;
       const pageNumStr = (entry.target as HTMLElement).dataset.pageNum;
       if (pageNumStr) {
-        currentPageIndex = parseInt(pageNumStr) - 1;
+        const newIndex = parseInt(pageNumStr) - 1;
+        if (newIndex !== currentPageIndex) {
+          currentPageIndex = newIndex;
+          history.replaceState(null, '', `#page=${currentPageIndex + 1}`);
+        }
       }
     }
   });
@@ -99,8 +103,10 @@ async function renderPdf() {
     const loadingTask = pdfjsLib.getDocument({ url: urlWithCacheBuster });
     pdfDocument = await loadingTask.promise;
     
-    // Save state
-    const savedIndex = currentPageIndex;
+    // Read the page from hash if available, otherwise use currentPageIndex
+    const hashMatch = window.location.hash.match(/#page=(\d+)/);
+    const hashPage = hashMatch ? parseInt(hashMatch[1]) - 1 : currentPageIndex;
+    const savedIndex = Math.max(0, Math.min(hashPage, pdfDocument.numPages - 1));
 
     // Disconnect observers
     visibilityObserver.disconnect();
