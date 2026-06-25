@@ -44,7 +44,7 @@ pdf-live-server [-t|--tailscale] [-n|--ngrok] <path-to-target-pdf>
 ```
 
 * `-t, --tailscale`: (Optional) Executes `tailscale serve` on startup to automatically generate HTTPS routing and a QR code.
-* `-n, --ngrok`: (Optional) Starts an ngrok tunnel on startup to provide a public URL and a QR code. **Requires the `NGROK_AUTHTOKEN` environment variable to be set.**
+* `-n, --ngrok`: (Optional) Starts an ngrok tunnel on startup to provide a public URL and a QR code. **Requires the `ngrok` CLI to be installed and authenticated via `ngrok config add-authtoken`.**
 
 **Examples:**
 ```bash
