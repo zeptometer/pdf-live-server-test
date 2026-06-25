@@ -151,23 +151,17 @@ btnZoom?.addEventListener('click', () => {
   renderPdf(); // Re-render to get crisp text at the new scale
 });
 
-// Tap Left/Right to turn pages
-document.addEventListener('click', (e) => {
-  // Ignore clicks on UI controls
-  if ((e.target as HTMLElement).closest('#controls')) return;
+const navLeft = document.getElementById('nav-left');
+const navRight = document.getElementById('nav-right');
 
-  const width = window.innerWidth;
-  const x = e.clientX;
-  
-  if (x < width * 0.25) {
-    // Scroll to previous
-    const prevIndex = Math.max(0, currentPageIndex - 1);
-    canvases[prevIndex]?.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
-  } else if (x > width * 0.75) {
-    // Scroll to next
-    const nextIndex = Math.min(canvases.length - 1, currentPageIndex + 1);
-    canvases[nextIndex]?.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
-  }
+navLeft?.addEventListener('click', () => {
+  const prevIndex = Math.max(0, currentPageIndex - 1);
+  canvases[prevIndex]?.scrollIntoView({ behavior: 'instant', block: 'center', inline: 'center' });
+});
+
+navRight?.addEventListener('click', () => {
+  const nextIndex = Math.min(canvases.length - 1, currentPageIndex + 1);
+  canvases[nextIndex]?.scrollIntoView({ behavior: 'instant', block: 'center', inline: 'center' });
 });
 
 // Listen for updates from the server
