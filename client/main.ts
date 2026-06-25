@@ -279,6 +279,16 @@ zoomOptions.forEach(btn => {
   });
 });
 
+let resizeTimeout: ReturnType<typeof setTimeout> | null = null;
+window.addEventListener('resize', () => {
+  if (resizeTimeout) clearTimeout(resizeTimeout);
+  resizeTimeout = setTimeout(() => {
+    if (zoomMode === 'height' || zoomMode === 'width') {
+      renderPdf();
+    }
+  }, 300);
+});
+
 const navLeft = document.getElementById('nav-left');
 const navRight = document.getElementById('nav-right');
 
