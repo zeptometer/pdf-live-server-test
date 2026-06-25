@@ -125,6 +125,31 @@ btnFab?.addEventListener('click', (e) => {
   zoomMenu?.classList.toggle('hidden');
 });
 
+const btnFullscreen = document.getElementById('btn-fullscreen');
+
+btnFullscreen?.addEventListener('click', (e) => {
+  e.stopPropagation();
+  zoomMenu?.classList.add('hidden');
+  
+  if (!document.fullscreenElement) {
+    document.documentElement.requestFullscreen().catch((err) => {
+      console.error(`Error attempting to enable fullscreen: ${err.message}`);
+    });
+  } else {
+    document.exitFullscreen();
+  }
+});
+
+document.addEventListener('fullscreenchange', () => {
+  if (btnFullscreen) {
+    if (document.fullscreenElement) {
+      btnFullscreen.textContent = 'Exit Fullscreen ✖';
+    } else {
+      btnFullscreen.textContent = 'Fullscreen ⛶';
+    }
+  }
+});
+
 // Close menu when clicking outside
 document.addEventListener('click', (e) => {
   if (!zoomMenu?.classList.contains('hidden')) {

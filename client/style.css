@@ -116,6 +116,12 @@ canvas.zoom-100 {
   pointer-events: none;
 }
 
+#zoom-menu .menu-divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.15);
+  margin: 4px 8px;
+}
+
 #zoom-menu button {
   background: transparent;
   border: none;
