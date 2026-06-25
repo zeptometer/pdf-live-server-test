@@ -10,6 +10,24 @@ const container = document.getElementById('pdf-container');
 const pdfUrl = '/target.pdf';
 
 let isRendering = false;
+let isHorizontal = false;
+let isZoomFit = true;
+let currentPageIndex = 0;
+const canvases: HTMLCanvasElement[] = [];
+
+// Track the most visible page
+const observer = new IntersectionObserver((entries) => {
+  let maxRatio = 0;
+  entries.forEach(entry => {
+    if (entry.intersectionRatio > maxRatio) {
+      maxRatio = entry.intersectionRatio;
+      const index = canvases.indexOf(entry.target as HTMLCanvasElement);
+      if (index !== -1) {
+        currentPageIndex = index;
+      }
+    }
+  });
+}, { threshold: [0.1, 0.5, 0.9] });
 
 async function renderPdf() {
   if (!container) return;
@@ -17,18 +35,13 @@ async function renderPdf() {
   isRendering = true;
 
   try {
-    // Load the PDF with cache buster
     const urlWithCacheBuster = `${pdfUrl}?t=${Date.now()}`;
-    const loadingTask = pdfjsLib.getDocument({
-      url: urlWithCacheBuster
-    });
-
+    const loadingTask = pdfjsLib.getDocument({ url: urlWithCacheBuster });
     const pdf = await loadingTask.promise;
     
-    // Create an off-screen fragment to hold the new pages
     const fragment = document.createDocumentFragment();
+    const newCanvases: HTMLCanvasElement[] = [];
 
-    // Render all pages into the fragment
     for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
       const page = await pdf.getPage(pageNum);
       const scale = 1.5;
@@ -42,9 +55,10 @@ async function renderPdf() {
       canvas.width = Math.floor(viewport.width * outputScale);
       canvas.height = Math.floor(viewport.height * outputScale);
       canvas.style.width = Math.floor(viewport.width) + "px";
-      // Intentionally not setting canvas.style.height here so that CSS `height: auto` 
-      // preserves the aspect ratio when constrained by `max-width: 100%`.
-
+      // height is left to 'auto' via CSS to preserve aspect ratio
+      
+      canvas.classList.add(isZoomFit ? 'zoom-fit' : 'zoom-100');
+      newCanvases.push(canvas);
       fragment.appendChild(canvas);
 
       const transform = outputScale !== 1 
@@ -60,16 +74,26 @@ async function renderPdf() {
       await page.render(renderContext).promise;
     }
 
-    // Capture the latest scroll position right before the DOM swap
-    const currentScrollY = window.scrollY;
-
-    // Synchronously swap the container contents and restore scroll
-    // This prevents the browser from painting the intermediate empty state
+    // Save scroll state before swapping
+    const savedIndex = currentPageIndex;
+    
+    observer.disconnect();
+    canvases.length = 0;
+    
     container.innerHTML = '';
     container.appendChild(fragment);
-    window.scrollTo(0, currentScrollY);
     
-    console.log('PDF rendered, scroll restored to:', currentScrollY);
+    // Register new canvases
+    newCanvases.forEach(c => {
+      canvases.push(c);
+      observer.observe(c);
+    });
+
+    // Restore position to the page the user was looking at
+    if (canvases[savedIndex]) {
+      canvases[savedIndex].scrollIntoView({ behavior: 'instant', block: 'center', inline: 'center' });
+      currentPageIndex = savedIndex;
+    }
 
   } catch (err) {
     console.error('Error rendering PDF:', err);
@@ -81,19 +105,55 @@ async function renderPdf() {
 // Initial render
 renderPdf();
 
+// Setup UI Controls
+const btnScroll = document.getElementById('btn-scroll');
+const btnZoom = document.getElementById('btn-zoom');
+
+btnScroll?.addEventListener('click', () => {
+  isHorizontal = !isHorizontal;
+  document.body.classList.toggle('horizontal-mode', isHorizontal);
+  btnScroll.textContent = isHorizontal ? 'Scroll: Horiz' : 'Scroll: Vert';
+  
+  // Re-align to current page immediately
+  if (canvases[currentPageIndex]) {
+    canvases[currentPageIndex].scrollIntoView({ behavior: 'instant', block: 'center', inline: 'center' });
+  }
+});
+
+btnZoom?.addEventListener('click', () => {
+  isZoomFit = !isZoomFit;
+  btnZoom.textContent = isZoomFit ? 'Zoom: Fit' : 'Zoom: 100%';
+  canvases.forEach(c => {
+    c.classList.toggle('zoom-fit', isZoomFit);
+    c.classList.toggle('zoom-100', !isZoomFit);
+  });
+});
+
+// Tap Left/Right to turn pages
+document.addEventListener('click', (e) => {
+  // Ignore clicks on UI controls
+  if ((e.target as HTMLElement).closest('#controls')) return;
+
+  const width = window.innerWidth;
+  const x = e.clientX;
+  
+  if (x < width * 0.25) {
+    // Scroll to previous
+    const prevIndex = Math.max(0, currentPageIndex - 1);
+    canvases[prevIndex]?.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+  } else if (x > width * 0.75) {
+    // Scroll to next
+    const nextIndex = Math.min(canvases.length - 1, currentPageIndex + 1);
+    canvases[nextIndex]?.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+  }
+});
+
 // Listen for updates from the server
 const eventSource = new EventSource('/events');
 
 eventSource.onmessage = (event) => {
   const data = JSON.parse(event.data);
   if (data.type === 'reload') {
-    console.log('Received reload event, refetching PDF...');
     renderPdf();
-  } else if (data.type === 'connected') {
-    console.log('Connected to live reload server.');
   }
-};
-
-eventSource.onerror = (err) => {
-  console.error('EventSource error:', err);
 };

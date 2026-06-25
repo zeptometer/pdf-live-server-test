@@ -1,4 +1,7 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
+
 body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   margin: 0;
   padding: 0;
   background-color: #525659; /* Standard PDF viewer background */
@@ -12,13 +15,97 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
+  gap: 15px;
   padding: 20px 0;
   width: 100%;
+  transition: all 0.3s ease;
+}
+
+/* Horizontal scrolling mode */
+body.horizontal-mode {
+  align-items: flex-start; /* Reset center alignment to allow scrolling */
+  height: 100vh;
+  overflow: hidden; /* Hide body scroll */
+}
+
+body.horizontal-mode #pdf-container {
+  flex-direction: row;
+  align-items: center;
+  padding: 0 20px;
+  height: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+}
+
+body.horizontal-mode canvas {
+  scroll-snap-align: center;
+  flex-shrink: 0;
 }
 
 canvas {
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
   max-width: 100%;
   height: auto;
+  transition: transform 0.2s ease, max-width 0.3s ease;
+}
+
+/* Zoom modes */
+canvas.zoom-fit {
+  max-width: 100%;
+}
+
+canvas.zoom-100 {
+  max-width: none; /* Let the intrinsic width apply */
+}
+
+/* Premium Floating Controls */
+#controls {
+  position: fixed;
+  bottom: 30px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 12px;
+  padding: 8px;
+  background: rgba(30, 32, 35, 0.6);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 24px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255,255,255,0.1);
+  z-index: 1000;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+/* Hide controls slightly when scrolling could be implemented, but keep it fixed for now */
+
+#controls button {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #e1e1e1;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  padding: 8px 16px;
+  border-radius: 16px;
+  cursor: pointer;
+  outline: none;
+  transition: all 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+#controls button:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: #ffffff;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+}
+
+#controls button:active {
+  transform: translateY(1px);
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow: none;
 }
