@@ -3,8 +3,10 @@ import chokidar from 'chokidar';
 import cors from 'cors';
 import qrcode from 'qrcode-terminal';
 import { resolve } from 'path';
-import { existsSync } from 'fs';
-import { exec } from 'child_process';
+import { existsSync, readFileSync } from 'fs';
+import { exec, spawn } from 'child_process';
+import os from 'os';
+import path from 'path';
 
 let targetPdf = '';
 let useTailscale = false;
@@ -126,26 +128,64 @@ function startTailscale(localPort: number, tsPort: number = 443) {
 
 async function startNgrok(localPort: number) {
   console.log('Configuring ngrok serve...');
-  try {
-    const ngrok = await import('@ngrok/ngrok');
-    const listener = await ngrok.connect({ addr: localPort });
-    const publicUrl = listener.url();
-    if (publicUrl) {
-      console.log(`🎉 Public URL (ngrok): ${publicUrl}`);
-      qrcode.generate(publicUrl, { small: true });
-    }
-  } catch (error: any) {
-    const errorMessage = error?.message || String(error);
-    if (errorMessage.includes('not authenticated') || errorMessage.includes('ERR_NGROK_4018')) {
-      console.error('\n❌ Error: ngrok session is not authenticated.');
-      console.error('To use the --ngrok option, please register your authtoken by running:\n');
-      console.error('  ngrok config add-authtoken <YOUR_AUTHTOKEN>\n');
-      console.error('You can find your token at: https://dashboard.ngrok.com/get-started/your-authtoken');
-      process.exit(1);
-    } else {
-      console.error('❌ Failed to configure ngrok serve:', errorMessage);
-    }
-  }
+  return new Promise<void>((resolve, reject) => {
+    const ngrokProcess = spawn('ngrok', ['http', localPort.toString(), '--log', 'stdout']);
+    
+    let foundUrl = false;
+    let authError = false;
+
+    ngrokProcess.on('error', (err: any) => {
+      if (err.code === 'ENOENT') {
+        console.error('\n❌ Error: ngrok CLI is not installed or not in PATH.');
+        console.error('Please install ngrok from https://ngrok.com/download');
+        process.exit(1);
+      }
+      reject(err);
+    });
+
+    ngrokProcess.stdout.on('data', (data) => {
+      const output = data.toString();
+      
+      if (!foundUrl) {
+        const match = output.match(/url=(https:\/\/[^\s]+)/);
+        if (match && match[1]) {
+          foundUrl = true;
+          const publicUrl = match[1];
+          console.log(`🎉 Public URL (ngrok): ${publicUrl}`);
+          qrcode.generate(publicUrl, { small: true });
+          resolve();
+        }
+      }
+
+      if (!authError && (output.includes('ERR_NGROK_4018') || output.includes('not authenticated') || output.includes('ERR_NGROK_108'))) {
+        authError = true;
+        console.error('\n❌ Error: ngrok session is not authenticated.');
+        console.error('To use the --ngrok option, please register your authtoken by running:\n');
+        console.error('  ngrok config add-authtoken <YOUR_AUTHTOKEN>\n');
+        console.error('You can find your token at: https://dashboard.ngrok.com/get-started/your-authtoken');
+        process.exit(1);
+      }
+    });
+
+    ngrokProcess.stderr.on('data', (data) => {
+      const output = data.toString();
+      if (!authError && (output.includes('ERR_NGROK_4018') || output.includes('not authenticated') || output.includes('ERR_NGROK_108'))) {
+        authError = true;
+        console.error('\n❌ Error: ngrok session is not authenticated.');
+        console.error('To use the --ngrok option, please register your authtoken by running:\n');
+        console.error('  ngrok config add-authtoken <YOUR_AUTHTOKEN>\n');
+        console.error('You can find your token at: https://dashboard.ngrok.com/get-started/your-authtoken');
+        process.exit(1);
+      }
+    });
+
+    ngrokProcess.on('exit', (code) => {
+      if (!foundUrl && !authError && code !== 0) {
+        console.error(`\n❌ ngrok exited unexpectedly with code ${code}`);
+        process.exit(1);
+      }
+    });
+  });
 }
 
 function startServer(targetPort: number) {
