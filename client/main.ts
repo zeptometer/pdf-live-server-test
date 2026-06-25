@@ -12,22 +12,81 @@ const pdfUrl = '/target.pdf';
 let isRendering = false;
 type ZoomMode = '100' | 'width' | 'height';
 let zoomMode: ZoomMode = 'width';
-let currentPageIndex = 0;
-const canvases: HTMLCanvasElement[] = [];
+let pdfDocument: pdfjsLib.PDFDocumentProxy | null = null;
+const pageContainers: HTMLDivElement[] = [];
 
-// Track the most visible page
-const observer = new IntersectionObserver((entries) => {
+// For tracking the current page
+const visibilityObserver = new IntersectionObserver((entries) => {
   let maxRatio = 0;
   entries.forEach(entry => {
     if (entry.intersectionRatio > maxRatio) {
       maxRatio = entry.intersectionRatio;
-      const index = canvases.indexOf(entry.target as HTMLCanvasElement);
-      if (index !== -1) {
-        currentPageIndex = index;
+      const pageNumStr = (entry.target as HTMLElement).dataset.pageNum;
+      if (pageNumStr) {
+        currentPageIndex = parseInt(pageNumStr) - 1;
       }
     }
   });
 }, { threshold: [0.1, 0.5, 0.9] });
+
+// For triggering render (preload adjacent pages)
+const renderObserver = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    const div = entry.target as HTMLDivElement;
+    if (entry.isIntersecting) {
+      renderPageInDiv(div);
+    } else {
+      unmountPageInDiv(div);
+    }
+  });
+}, { rootMargin: '100% 0px' });
+
+async function renderPageInDiv(div: HTMLDivElement) {
+  const data = div as any;
+  if (data._hasRendered || data._isRendering) return;
+  data._isRendering = true;
+
+  try {
+    const page = data._page;
+    const viewport = data._viewport;
+    const outputScale = window.devicePixelRatio || 1;
+
+    const canvas = document.createElement('canvas');
+    const context = canvas.getContext('2d');
+    if (!context) return;
+
+    canvas.width = Math.floor(viewport.width * outputScale);
+    canvas.height = Math.floor(viewport.height * outputScale);
+    // Fill the placeholder
+    canvas.style.width = "100%";
+    canvas.style.height = "100%";
+
+    const transform = outputScale !== 1 ? [outputScale, 0, 0, outputScale, 0, 0] : null;
+
+    div.innerHTML = ''; // clear placeholder text/spinner if any
+    div.appendChild(canvas);
+
+    await page.render({
+      canvasContext: context,
+      transform: transform,
+      viewport: viewport
+    }).promise;
+
+    data._hasRendered = true;
+  } catch (err) {
+    console.error('Error rendering page:', err);
+  } finally {
+    data._isRendering = false;
+  }
+}
+
+function unmountPageInDiv(div: HTMLDivElement) {
+  const data = div as any;
+  if (data._hasRendered) {
+    div.innerHTML = ''; // clear canvas to free GPU memory
+    data._hasRendered = false;
+  }
+}
 
 async function renderPdf() {
   if (!container) return;
@@ -37,77 +96,76 @@ async function renderPdf() {
   try {
     const urlWithCacheBuster = `${pdfUrl}?t=${Date.now()}`;
     const loadingTask = pdfjsLib.getDocument({ url: urlWithCacheBuster });
-    const pdf = await loadingTask.promise;
+    pdfDocument = await loadingTask.promise;
     
-    const fragment = document.createDocumentFragment();
-    const newCanvases: HTMLCanvasElement[] = [];
+    // Save state
+    const savedIndex = currentPageIndex;
 
-    for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
-      const page = await pdf.getPage(pageNum);
-      
+    // Disconnect observers
+    visibilityObserver.disconnect();
+    renderObserver.disconnect();
+    pageContainers.length = 0;
+    container.innerHTML = '';
+
+    const fragment = document.createDocumentFragment();
+
+    // Fetch all pages to get dimensions (fast)
+    const pagePromises = [];
+    for (let pageNum = 1; pageNum <= pdfDocument.numPages; pageNum++) {
+      pagePromises.push(pdfDocument.getPage(pageNum));
+    }
+    const pages = await Promise.all(pagePromises);
+
+    // Create placeholders
+    pages.forEach((page, index) => {
       let scale = 1.5;
       if (zoomMode === 'width' || zoomMode === 'height') {
         const baseViewport = page.getViewport({ scale: 1.0 });
         if (zoomMode === 'height') {
           scale = window.innerHeight / baseViewport.height;
         } else {
-          // Use clientWidth to avoid horizontal scrollbars interfering
           scale = document.documentElement.clientWidth / baseViewport.width;
         }
       }
+      const viewport = page.getViewport({ scale });
+
+      const pageDiv = document.createElement('div');
+      pageDiv.className = 'page-container';
+      pageDiv.dataset.pageNum = (index + 1).toString();
       
-      const viewport = page.getViewport({ scale: scale });
-      const outputScale = window.devicePixelRatio || 1;
-
-      const canvas = document.createElement('canvas');
-      const context = canvas.getContext('2d');
-      if (!context) continue;
-
-      canvas.width = Math.floor(viewport.width * outputScale);
-      canvas.height = Math.floor(viewport.height * outputScale);
-      canvas.style.width = Math.floor(viewport.width) + "px";
-      // height is left to 'auto' via CSS to preserve aspect ratio
+      // Explicit dimensions to maintain scroll space
+      pageDiv.style.width = Math.floor(viewport.width) + "px";
+      pageDiv.style.height = Math.floor(viewport.height) + "px";
       
-      canvas.classList.add(`zoom-${zoomMode}`);
-      newCanvases.push(canvas);
-      fragment.appendChild(canvas);
+      const data = pageDiv as any;
+      data._viewport = viewport;
+      data._page = page;
+      data._isRendering = false;
+      data._hasRendered = false;
 
-      const transform = outputScale !== 1 
-        ? [outputScale, 0, 0, outputScale, 0, 0] 
-        : null;
-
-      const renderContext = {
-        canvasContext: context,
-        transform: transform,
-        viewport: viewport
-      };
-
-      await page.render(renderContext).promise;
-    }
-
-    // Save scroll state before swapping
-    const savedIndex = currentPageIndex;
+      pageContainers.push(pageDiv);
+      fragment.appendChild(pageDiv);
+    });
     
-    observer.disconnect();
-    canvases.length = 0;
-    
-    container.innerHTML = '';
     container.appendChild(fragment);
-    
-    // Register new canvases
-    newCanvases.forEach(c => {
-      canvases.push(c);
-      observer.observe(c);
+
+    // Observe all placeholders
+    pageContainers.forEach(div => {
+      visibilityObserver.observe(div);
+      renderObserver.observe(div);
     });
 
-    // Restore position to the page the user was looking at
-    if (canvases[savedIndex]) {
-      canvases[savedIndex].scrollIntoView({ behavior: 'instant', block: 'center', inline: 'center' });
+    // Restore scroll position
+    if (pageContainers[savedIndex]) {
+      pageContainers[savedIndex].scrollIntoView({ behavior: 'instant', block: 'center', inline: 'center' });
       currentPageIndex = savedIndex;
+    } else if (pageContainers.length > 0) {
+      pageContainers[0].scrollIntoView({ behavior: 'instant', block: 'start', inline: 'center' });
+      currentPageIndex = 0;
     }
 
   } catch (err) {
-    console.error('Error rendering PDF:', err);
+    console.error('Error fetching PDF:', err);
   } finally {
     isRendering = false;
   }
@@ -189,14 +247,30 @@ zoomOptions.forEach(btn => {
 const navLeft = document.getElementById('nav-left');
 const navRight = document.getElementById('nav-right');
 
-navLeft?.addEventListener('click', () => {
+navLeft?.addEventListener('click', async () => {
   const prevIndex = Math.max(0, currentPageIndex - 1);
-  canvases[prevIndex]?.scrollIntoView({ behavior: 'instant', block: 'center', inline: 'center' });
+  const targetDiv = pageContainers[prevIndex];
+  if (!targetDiv) return;
+
+  // Double-buffering: Ensure the page is rendered before jumping
+  if (!(targetDiv as any)._hasRendered) {
+    await renderPageInDiv(targetDiv);
+  }
+  
+  targetDiv.scrollIntoView({ behavior: 'instant', block: 'center', inline: 'center' });
 });
 
-navRight?.addEventListener('click', () => {
-  const nextIndex = Math.min(canvases.length - 1, currentPageIndex + 1);
-  canvases[nextIndex]?.scrollIntoView({ behavior: 'instant', block: 'center', inline: 'center' });
+navRight?.addEventListener('click', async () => {
+  const nextIndex = Math.min(pageContainers.length - 1, currentPageIndex + 1);
+  const targetDiv = pageContainers[nextIndex];
+  if (!targetDiv) return;
+
+  // Double-buffering: Ensure the page is rendered before jumping
+  if (!(targetDiv as any)._hasRendered) {
+    await renderPageInDiv(targetDiv);
+  }
+  
+  targetDiv.scrollIntoView({ behavior: 'instant', block: 'center', inline: 'center' });
 });
 
 // Listen for updates from the server
