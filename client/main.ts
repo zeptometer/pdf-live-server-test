@@ -44,7 +44,18 @@ async function renderPdf() {
 
     for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
       const page = await pdf.getPage(pageNum);
-      const scale = 1.5;
+      
+      let scale = 1.5;
+      if (isZoomFit) {
+        const baseViewport = page.getViewport({ scale: 1.0 });
+        if (isHorizontal) {
+          scale = window.innerHeight / baseViewport.height;
+        } else {
+          // Use clientWidth to avoid horizontal scrollbars interfering
+          scale = document.documentElement.clientWidth / baseViewport.width;
+        }
+      }
+      
       const viewport = page.getViewport({ scale: scale });
       const outputScale = window.devicePixelRatio || 1;
 
@@ -114,19 +125,21 @@ btnScroll?.addEventListener('click', () => {
   document.body.classList.toggle('horizontal-mode', isHorizontal);
   btnScroll.textContent = isHorizontal ? 'Scroll: Horiz' : 'Scroll: Vert';
   
-  // Re-align to current page immediately
-  if (canvases[currentPageIndex]) {
-    canvases[currentPageIndex].scrollIntoView({ behavior: 'instant', block: 'center', inline: 'center' });
+  if (isZoomFit) {
+    // Re-render because the fit dimension changed from Width to Height
+    renderPdf();
+  } else {
+    // Re-align to current page immediately
+    if (canvases[currentPageIndex]) {
+      canvases[currentPageIndex].scrollIntoView({ behavior: 'instant', block: 'center', inline: 'center' });
+    }
   }
 });
 
 btnZoom?.addEventListener('click', () => {
   isZoomFit = !isZoomFit;
   btnZoom.textContent = isZoomFit ? 'Zoom: Fit' : 'Zoom: 100%';
-  canvases.forEach(c => {
-    c.classList.toggle('zoom-fit', isZoomFit);
-    c.classList.toggle('zoom-100', !isZoomFit);
-  });
+  renderPdf(); // Re-render to get crisp text at the new scale
 });
 
 // Tap Left/Right to turn pages

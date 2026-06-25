@@ -53,7 +53,15 @@ canvas {
 
 /* Zoom modes */
 canvas.zoom-fit {
+  width: 100% !important;
   max-width: 100%;
+}
+
+body.horizontal-mode canvas.zoom-fit {
+  width: auto !important;
+  height: 100vh !important;
+  max-height: 100vh;
+  max-width: none !important;
 }
 
 canvas.zoom-100 {
