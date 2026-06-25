@@ -116,21 +116,45 @@ async function renderPdf() {
 // Initial render
 renderPdf();
 
-// Setup UI Controls
-const btnZoom = document.getElementById('btn-zoom');
+const btnFab = document.getElementById('btn-fab');
+const zoomMenu = document.getElementById('zoom-menu');
+const zoomOptions = document.querySelectorAll('.zoom-option');
 
-btnZoom?.addEventListener('click', () => {
-  if (zoomMode === 'width') zoomMode = 'height';
-  else if (zoomMode === 'height') zoomMode = '100';
-  else zoomMode = 'width';
-  
-  const labels = {
-    'width': 'Zoom: Width',
-    'height': 'Zoom: Height',
-    '100': 'Zoom: 100%'
-  };
-  btnZoom.textContent = labels[zoomMode];
-  renderPdf(); // Re-render to get crisp text at the new scale
+btnFab?.addEventListener('click', (e) => {
+  e.stopPropagation();
+  zoomMenu?.classList.toggle('hidden');
+});
+
+// Close menu when clicking outside
+document.addEventListener('click', (e) => {
+  if (!zoomMenu?.classList.contains('hidden')) {
+    const target = e.target as HTMLElement;
+    if (!target.closest('#fab-container')) {
+      zoomMenu.classList.add('hidden');
+    }
+  }
+});
+
+zoomOptions.forEach(btn => {
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const target = e.target as HTMLElement;
+    const mode = target.getAttribute('data-mode') as ZoomMode;
+    
+    if (mode && mode !== zoomMode) {
+      zoomMode = mode;
+      
+      // Update active state
+      zoomOptions.forEach(b => b.classList.remove('active'));
+      target.classList.add('active');
+      
+      // Re-render
+      renderPdf();
+    }
+    
+    // Hide menu after selection
+    zoomMenu?.classList.add('hidden');
+  });
 });
 
 const navLeft = document.getElementById('nav-left');

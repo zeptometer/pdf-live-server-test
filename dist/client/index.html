@@ -4,16 +4,21 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>PDF Live Viewer</title>
-  <script type="module" crossorigin src="/assets/index-B3JpoROS.js"></script>
-  <link rel="stylesheet" crossorigin href="/assets/index-BbT72HSh.css">
+  <script type="module" crossorigin src="/assets/index-_E4FyIAy.js"></script>
+  <link rel="stylesheet" crossorigin href="/assets/index-D7DHA7dY.css">
 </head>
 <body>
   <div id="pdf-container">
     <!-- PDF pages will be rendered here as canvas elements -->
   </div>
   
-  <div id="controls">
-    <button id="btn-zoom">Zoom: Width</button>
+  <div id="fab-container">
+    <div id="zoom-menu" class="hidden">
+      <button class="zoom-option active" data-mode="width">Zoom: Width</button>
+      <button class="zoom-option" data-mode="height">Zoom: Height</button>
+      <button class="zoom-option" data-mode="100">Zoom: 100%</button>
+    </div>
+    <button id="btn-fab">🔍</button>
   </div>
 
   <div id="nav-left" class="nav-btn">&lt;</div>

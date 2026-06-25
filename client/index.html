@@ -11,8 +11,13 @@
     <!-- PDF pages will be rendered here as canvas elements -->
   </div>
   
-  <div id="controls">
-    <button id="btn-zoom">Zoom: Width</button>
+  <div id="fab-container">
+    <div id="zoom-menu" class="hidden">
+      <button class="zoom-option active" data-mode="width">Zoom: Width</button>
+      <button class="zoom-option" data-mode="height">Zoom: Height</button>
+      <button class="zoom-option" data-mode="100">Zoom: 100%</button>
+    </div>
+    <button id="btn-fab">🔍</button>
   </div>
 
   <div id="nav-left" class="nav-btn">&lt;</div>
