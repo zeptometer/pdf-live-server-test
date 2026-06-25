@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>PDF Live Viewer</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0" />
   <link rel="stylesheet" href="./style.css">
 </head>
 <body>
@@ -13,17 +14,35 @@
   
   <div id="fab-container">
     <div id="zoom-menu" class="hidden">
-      <button id="btn-fullscreen">Fullscreen ⛶</button>
+      <button id="btn-fullscreen">
+        <span class="material-symbols-outlined">fullscreen</span>
+        <span class="btn-text">Fullscreen</span>
+      </button>
       <div class="menu-divider"></div>
-      <button class="zoom-option active" data-mode="width">Zoom: Width</button>
-      <button class="zoom-option" data-mode="height">Zoom: Height</button>
-      <button class="zoom-option" data-mode="100">Zoom: 100%</button>
+      <button class="zoom-option active" data-mode="width">
+        <span class="material-symbols-outlined">width_full</span>
+        <span class="btn-text">Fit Width</span>
+      </button>
+      <button class="zoom-option" data-mode="height">
+        <span class="material-symbols-outlined">height</span>
+        <span class="btn-text">Fit Height</span>
+      </button>
+      <button class="zoom-option" data-mode="100">
+        <span class="material-symbols-outlined">zoom_in_map</span>
+        <span class="btn-text">100%</span>
+      </button>
     </div>
-    <button id="btn-fab">🔍</button>
+    <button id="btn-fab">
+      <span class="material-symbols-outlined">search</span>
+    </button>
   </div>
 
-  <div id="nav-left" class="nav-btn">&lt;</div>
-  <div id="nav-right" class="nav-btn">&gt;</div>
+  <button id="nav-left" class="nav-btn">
+    <span class="material-symbols-outlined">chevron_left</span>
+  </button>
+  <button id="nav-right" class="nav-btn">
+    <span class="material-symbols-outlined">chevron_right</span>
+  </button>
 
   <script type="module" src="./main.ts"></script>
 </body>
