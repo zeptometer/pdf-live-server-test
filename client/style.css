@@ -21,28 +21,7 @@ body {
   transition: all 0.3s ease;
 }
 
-/* Horizontal scrolling mode */
-body.horizontal-mode {
-  align-items: flex-start; /* Reset center alignment to allow scrolling */
-  height: 100vh;
-  overflow: hidden; /* Hide body scroll */
-}
 
-body.horizontal-mode #pdf-container {
-  flex-direction: row;
-  align-items: center;
-  padding: 0 20px;
-  height: 100%;
-  overflow-x: auto;
-  overflow-y: hidden;
-  scroll-snap-type: x mandatory;
-  -webkit-overflow-scrolling: touch;
-}
-
-body.horizontal-mode canvas {
-  scroll-snap-align: center;
-  flex-shrink: 0;
-}
 
 canvas {
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);

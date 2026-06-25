@@ -10,7 +10,6 @@ const container = document.getElementById('pdf-container');
 const pdfUrl = '/target.pdf';
 
 let isRendering = false;
-let isHorizontal = false;
 type ZoomMode = '100' | 'width' | 'height';
 let zoomMode: ZoomMode = 'width';
 let currentPageIndex = 0;
@@ -118,24 +117,7 @@ async function renderPdf() {
 renderPdf();
 
 // Setup UI Controls
-const btnScroll = document.getElementById('btn-scroll');
 const btnZoom = document.getElementById('btn-zoom');
-
-btnScroll?.addEventListener('click', () => {
-  isHorizontal = !isHorizontal;
-  document.body.classList.toggle('horizontal-mode', isHorizontal);
-  btnScroll.textContent = isHorizontal ? 'Scroll: Horiz' : 'Scroll: Vert';
-  
-  if (zoomMode !== '100') {
-    // Re-render because the fit dimension might need recalculation
-    renderPdf();
-  } else {
-    // Re-align to current page immediately
-    if (canvases[currentPageIndex]) {
-      canvases[currentPageIndex].scrollIntoView({ behavior: 'instant', block: 'center', inline: 'center' });
-    }
-  }
-});
 
 btnZoom?.addEventListener('click', () => {
   if (zoomMode === 'width') zoomMode = 'height';
