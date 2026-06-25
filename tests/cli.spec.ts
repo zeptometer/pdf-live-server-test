@@ -132,3 +132,45 @@ test('Server falls back to another port when default 8080 is in use', async () =
     await new Promise<void>((resolve) => dummyServer.close(() => resolve()));
   }
 });
+
+test('Server exits with error if --ngrok and --tailscale are both specified', async () => {
+  const serverProcess = cp.spawn('node', ['--import', 'tsx', 'server/index.ts', '--tailscale', '--ngrok', 'dummy.pdf']);
+  
+  let stderrData = '';
+  serverProcess.stderr?.on('data', (data) => {
+    stderrData += data.toString();
+  });
+
+  const exitCode = await new Promise<number | null>((resolve) => {
+    serverProcess.on('exit', (code) => {
+      resolve(code);
+    });
+  });
+
+  expect(exitCode).not.toBe(0);
+  expect(stderrData).toContain('Cannot use both --tailscale and --ngrok');
+});
+
+test('Server exits with error if --ngrok is used without NGROK_AUTHTOKEN', async () => {
+  // Ensure NGROK_AUTHTOKEN is unset for this test
+  const env = { ...process.env };
+  delete env.NGROK_AUTHTOKEN;
+
+  const serverProcess = cp.spawn('node', ['--import', 'tsx', 'server/index.ts', '--ngrok', 'dummy.pdf'], { env });
+  
+  let stderrData = '';
+  serverProcess.stderr?.on('data', (data) => {
+    stderrData += data.toString();
+  });
+
+  const exitCode = await new Promise<number | null>((resolve) => {
+    serverProcess.on('exit', (code) => {
+      resolve(code);
+    });
+  });
+
+  expect(exitCode).not.toBe(0);
+  expect(stderrData).toContain('NGROK_AUTHTOKEN is not set');
+  expect(stderrData).toContain('export NGROK_AUTHTOKEN=');
+});
+

@@ -8,18 +8,34 @@ import { exec } from 'child_process';
 
 let targetPdf = '';
 let useTailscale = false;
+let useNgrok = false;
 
 const args = process.argv.slice(2);
 for (let i = 0; i < args.length; i++) {
   if (args[i] === '-t' || args[i] === '--tailscale') {
     useTailscale = true;
+  } else if (args[i] === '-n' || args[i] === '--ngrok') {
+    useNgrok = true;
   } else if (!targetPdf) {
     targetPdf = args[i];
   }
 }
 
+if (useTailscale && useNgrok) {
+  console.error('❌ Error: Cannot use both --tailscale and --ngrok at the same time.');
+  process.exit(1);
+}
+
+if (useNgrok && !process.env.NGROK_AUTHTOKEN) {
+  console.error('❌ Error: NGROK_AUTHTOKEN is not set.');
+  console.error('To use the --ngrok option, you must sign up at https://dashboard.ngrok.com');
+  console.error('and set your authtoken as an environment variable:');
+  console.error('export NGROK_AUTHTOKEN="your_auth_token_here"');
+  process.exit(1);
+}
+
 if (!targetPdf) {
-  console.error('Usage: npx tsx server/index.ts [-t|--tailscale] <path_to_pdf>');
+  console.error('Usage: npx tsx server/index.ts [-t|--tailscale] [-n|--ngrok] <path_to_pdf>');
   process.exit(1);
 }
 
@@ -116,6 +132,21 @@ function startTailscale(localPort: number, tsPort: number = 443) {
   });
 }
 
+async function startNgrok(localPort: number) {
+  console.log('Configuring ngrok serve...');
+  try {
+    const ngrok = await import('@ngrok/ngrok');
+    const listener = await ngrok.connect({ addr: localPort, authtoken_from_env: true });
+    const publicUrl = listener.url();
+    if (publicUrl) {
+      console.log(`🎉 Public URL (ngrok): ${publicUrl}`);
+      qrcode.generate(publicUrl, { small: true });
+    }
+  } catch (error: any) {
+    console.error('❌ Failed to configure ngrok serve:', error?.message || error);
+  }
+}
+
 function startServer(targetPort: number) {
   const server = app.listen(targetPort, '0.0.0.0', () => {
     const address = server.address();
@@ -125,6 +156,8 @@ function startServer(targetPort: number) {
 
     if (useTailscale) {
       startTailscale(actualPort, 443);
+    } else if (useNgrok) {
+      startNgrok(actualPort);
     }
   });
 

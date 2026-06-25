@@ -20,6 +20,11 @@ When the target PDF is updated, it automatically instructs the browser to reload
 * **Tailscale Integration (`-t` / `--tailscale`)**:
   * Can be launched with the `--tailscale` flag to automatically expose the local server to the Tailnet via `tailscale serve`.
   * Automatically handles Tailscale port conflicts and generates/prints a QR code in the terminal for easy access from mobile or tablet devices.
+* **ngrok Integration (`-n` / `--ngrok`)**:
+  * Can be launched with the `--ngrok` flag to dynamically create a public tunnel to the local server using `@ngrok/ngrok`.
+  * Requires the `NGROK_AUTHTOKEN` environment variable to authenticate the session.
+  * Generates and prints a QR code of the public ngrok URL for easy access.
+  * Mutually exclusive with the `--tailscale` flag; specifying both will result in an error.
 
 ## 3. System Architecture
 * **Backend (Web Server)**:

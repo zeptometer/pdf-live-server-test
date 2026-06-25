@@ -2,13 +2,14 @@
 
 A web server for live previewing PDFs, designed to support paper writing (e.g., LaTeX).
 It detects updates to a target PDF file and automatically instructs the browser to reload the view, **maintaining the current scroll position** after the redraw.
-It is built as a simple HTTP server, making it ideal for viewing over a local network or VPN/reverse proxies like Tailscale.
+It detects updates to a target PDF file and automatically instructs the browser to reload the view, **maintaining the current scroll position** after the redraw.
+It is built as a simple HTTP server, making it ideal for viewing over a local network or VPN/reverse proxies like Tailscale or ngrok.
 
 ## Features
 
 * 🚀 **Real-time Updates**: When the file is updated, the PDF in the browser reloads instantly.
 * 📜 **Scroll Position Retention**: After reloading, the view does not jump back to the top; it stays exactly where you were reading.
-* 🌐 **HTTP-based Serving**: You can view the preview from other devices on the local network or via Tailscale without any special configuration.
+* 🌐 **HTTP-based Serving**: You can view the preview from other devices on the local network, or securely over the internet via Tailscale/ngrok without any complex configuration.
 * 🔍 **Robust File Watching**: Combines directory-level watching and polling to prevent the watcher from losing track due to atomic file saves (deletion and recreation) typically performed by LaTeX compilers.
 
 ## Prerequisites
@@ -39,10 +40,11 @@ npm link
 After installation, run the command by specifying the path to the PDF you want to watch.
 
 ```bash
-pdf-live-server [-t|--tailscale] <path-to-target-pdf>
+pdf-live-server [-t|--tailscale] [-n|--ngrok] <path-to-target-pdf>
 ```
 
 * `-t, --tailscale`: (Optional) Executes `tailscale serve` on startup to automatically generate HTTPS routing and a QR code.
+* `-n, --ngrok`: (Optional) Starts an ngrok tunnel on startup to provide a public URL and a QR code. **Requires the `NGROK_AUTHTOKEN` environment variable to be set.**
 
 **Examples:**
 ```bash
@@ -51,6 +53,10 @@ pdf-live-server path/to/your/paper.pdf
 
 # Automatically configure secure access via Tailscale
 pdf-live-server --tailscale path/to/your/paper.pdf
+
+# Automatically configure public access via ngrok
+export NGROK_AUTHTOKEN="your_auth_token_here"
+pdf-live-server --ngrok path/to/your/paper.pdf
 ```
 
 After startup, open the URL displayed in the console (e.g., `http://localhost:8080`) in your browser. Whenever the PDF file is overwritten and saved by another editor or compiler, the browser preview will update automatically.
