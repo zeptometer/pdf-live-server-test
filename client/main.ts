@@ -1,5 +1,9 @@
 import * as pdfjsLib from 'pdfjs-dist';
 
+if ('scrollRestoration' in history) {
+  history.scrollRestoration = 'manual';
+}
+
 // Configure the worker explicitly
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
   'pdfjs-dist/build/pdf.worker.mjs',
