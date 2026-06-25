@@ -115,6 +115,11 @@ canvas.zoom-100 {
   pointer-events: none;
 }
 
+body.is-fullscreen #btn-fullscreen,
+body.is-fullscreen #btn-fullscreen + .menu-divider {
+  display: none !important;
+}
+
 #zoom-menu .menu-divider {
   height: 1px;
   background-color: #49454F; /* M3 Outline Variant */

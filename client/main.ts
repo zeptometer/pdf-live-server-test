@@ -141,12 +141,10 @@ btnFullscreen?.addEventListener('click', (e) => {
 });
 
 document.addEventListener('fullscreenchange', () => {
-  if (btnFullscreen) {
-    if (document.fullscreenElement) {
-      btnFullscreen.textContent = 'Exit Fullscreen ✖';
-    } else {
-      btnFullscreen.textContent = 'Fullscreen ⛶';
-    }
+  if (document.fullscreenElement) {
+    document.body.classList.add('is-fullscreen');
+  } else {
+    document.body.classList.remove('is-fullscreen');
   }
 });
 
