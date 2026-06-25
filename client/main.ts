@@ -141,10 +141,16 @@ btnFullscreen?.addEventListener('click', (e) => {
 });
 
 document.addEventListener('fullscreenchange', () => {
-  if (document.fullscreenElement) {
-    document.body.classList.add('is-fullscreen');
-  } else {
-    document.body.classList.remove('is-fullscreen');
+  if (btnFullscreen) {
+    const iconSpan = btnFullscreen.querySelector('.material-symbols-outlined');
+    const textSpan = btnFullscreen.querySelector('.btn-text');
+    if (document.fullscreenElement) {
+      if (iconSpan) iconSpan.textContent = 'fullscreen_exit';
+      if (textSpan) textSpan.textContent = 'Exit Fullscreen';
+    } else {
+      if (iconSpan) iconSpan.textContent = 'fullscreen';
+      if (textSpan) textSpan.textContent = 'Fullscreen';
+    }
   }
 });
 
