@@ -11,28 +11,39 @@ const pdfUrl = '/target.pdf';
 
 let isRendering = false;
 type ZoomMode = '100' | 'width' | 'height';
-let zoomMode: ZoomMode = 'width';
+let zoomMode: ZoomMode = (localStorage.getItem('zoomMode') as ZoomMode) || 'width';
 let currentPageIndex = 0;
 let pdfDocument: pdfjsLib.PDFDocumentProxy | null = null;
 const pageContainers: HTMLDivElement[] = [];
 
+const visiblePages = new Map<number, number>();
+let ignoreObserverUntil = 0;
+
 // For tracking the current page
 const visibilityObserver = new IntersectionObserver((entries) => {
-  let maxRatio = 0;
   entries.forEach(entry => {
-    if (entry.intersectionRatio > maxRatio) {
-      maxRatio = entry.intersectionRatio;
-      const pageNumStr = (entry.target as HTMLElement).dataset.pageNum;
-      if (pageNumStr) {
-        const newIndex = parseInt(pageNumStr) - 1;
-        if (newIndex !== currentPageIndex) {
-          currentPageIndex = newIndex;
-          history.replaceState(null, '', `#page=${currentPageIndex + 1}`);
-        }
-      }
+    const pageNumStr = (entry.target as HTMLElement).dataset.pageNum;
+    if (pageNumStr) {
+      const index = parseInt(pageNumStr) - 1;
+      visiblePages.set(index, entry.intersectionRatio);
     }
   });
-}, { threshold: [0.1, 0.5, 0.9] });
+
+  let maxRatio = -1;
+  let bestIndex = currentPageIndex;
+  
+  visiblePages.forEach((ratio, index) => {
+    if (ratio > maxRatio) {
+      maxRatio = ratio;
+      bestIndex = index;
+    }
+  });
+
+  if (Date.now() > ignoreObserverUntil && maxRatio > 0 && bestIndex !== currentPageIndex) {
+    currentPageIndex = bestIndex;
+    history.replaceState(null, '', `#page=${currentPageIndex + 1}`);
+  }
+}, { threshold: [0, 0.1, 0.25, 0.5, 0.75, 0.9, 1.0] });
 
 // For triggering render (preload adjacent pages)
 const renderObserver = new IntersectionObserver((entries) => {
@@ -156,6 +167,9 @@ async function renderPdf() {
     
     container.appendChild(fragment);
 
+    // Ignore observer updates temporarily while the browser handles DOM updates & scroll jumps
+    ignoreObserverUntil = Date.now() + 500;
+
     // Observe all placeholders
     pageContainers.forEach(div => {
       visibilityObserver.observe(div);
@@ -229,6 +243,15 @@ document.addEventListener('click', (e) => {
   }
 });
 
+// Initial active state for zoom options
+zoomOptions.forEach(b => {
+  if (b.getAttribute('data-mode') === zoomMode) {
+    b.classList.add('active');
+  } else {
+    b.classList.remove('active');
+  }
+});
+
 zoomOptions.forEach(btn => {
   btn.addEventListener('click', (e) => {
     e.stopPropagation();
@@ -237,6 +260,7 @@ zoomOptions.forEach(btn => {
     
     if (mode && mode !== zoomMode) {
       zoomMode = mode;
+      localStorage.setItem('zoomMode', mode);
       
       // Update active state
       zoomOptions.forEach(b => b.classList.remove('active'));
