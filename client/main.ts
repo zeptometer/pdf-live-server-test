@@ -224,6 +224,10 @@ btnFullscreen?.addEventListener('click', (e) => {
 });
 
 document.addEventListener('fullscreenchange', () => {
+  // Prevent the observer from incorrectly updating the URL hash if the browser 
+  // natively jumps the scroll position during the fullscreen transition.
+  ignoreObserverUntil = Date.now() + 1000;
+
   if (btnFullscreen) {
     const iconSpan = btnFullscreen.querySelector('.material-symbols-outlined');
     const textSpan = btnFullscreen.querySelector('.btn-text');
