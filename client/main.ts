@@ -12,6 +12,7 @@ const pdfUrl = '/target.pdf';
 let isRendering = false;
 type ZoomMode = '100' | 'width' | 'height';
 let zoomMode: ZoomMode = 'width';
+let currentPageIndex = 0;
 let pdfDocument: pdfjsLib.PDFDocumentProxy | null = null;
 const pageContainers: HTMLDivElement[] = [];
 
