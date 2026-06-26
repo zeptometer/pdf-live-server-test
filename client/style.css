@@ -74,6 +74,7 @@ canvas {
   transition: background-color 0.2s, box-shadow 0.2s, transform 0.2s;
   outline: none;
   -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
 }
 
 #btn-fab .material-symbols-outlined {
@@ -172,6 +173,7 @@ canvas {
   border-radius: 16px;
   z-index: 1000;
   -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
   transition: background-color 0.2s, box-shadow 0.2s;
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
