@@ -30,7 +30,6 @@ test('re-renders PDF to fit new height on viewport resize', async ({ page }) => 
   expect(initialBox?.height).toBeCloseTo(600, -1); // Roughly 600
 
   // Scroll to page 2 BEFORE resizing
-  await page.waitForTimeout(600);
   await page.click('#nav-right');
   await expect(page).toHaveURL(/.*#page=2/);
 

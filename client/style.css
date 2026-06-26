@@ -15,13 +15,11 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 15px;
-  padding: 20px 0;
+  justify-content: center;
   width: 100%;
   transition: all 0.3s ease;
+  min-height: 100vh;
 }
-
-
 
 .page-container {
   display: flex;
@@ -29,7 +27,6 @@ body {
   align-items: center;
   background-color: #ffffff; /* White background acting as the paper */
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
-  margin-bottom: 15px;
   position: relative;
   overflow: hidden; /* Ensure canvas doesn't bleed */
 }

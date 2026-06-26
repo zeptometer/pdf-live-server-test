@@ -18,9 +18,6 @@ test('retains active page position on browser reload', async ({ page }) => {
   // 2. Wait for placeholder to be rendered
   await page.waitForSelector('.page-container');
 
-  // Wait for the ignoreObserverUntil timer (500ms) to expire
-  await page.waitForTimeout(600);
-
   // 3. Move to next page
   await page.click('#nav-right');
 
@@ -31,12 +28,9 @@ test('retains active page position on browser reload', async ({ page }) => {
   await page.reload();
   await page.waitForSelector('.page-container');
 
-  // Wait a bit for restoring scroll
-  await page.waitForTimeout(500);
-
   await expect(page).toHaveURL(/.*#page=2/);
 
-  // 5. Verify that page 2 is in the viewport (scroll position restored)
+  // 5. Verify that page 2 is in the viewport
   const page2 = page.locator('.page-container[data-page-num="2"]');
   await expect(page2).toBeInViewport();
 });

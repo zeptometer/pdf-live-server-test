@@ -2,53 +2,41 @@ import { test, expect } from '@playwright/test';
 import * as fs from 'fs';
 import { resolve } from 'path';
 
-test('PDF reloads and maintains scroll position on file change', async ({ page }) => {
+test('PDF reloads and maintains active page on file change', async ({ page }) => {
   const dummyPdfPath = resolve(process.cwd(), 'dummy.pdf');
   
-  // Ensure dummy.pdf exists for the test
-  if (!fs.existsSync(dummyPdfPath)) {
-    fs.writeFileSync(dummyPdfPath, '');
+  if (!fs.existsSync(dummyPdfPath) || fs.statSync(dummyPdfPath).size < 100) {
+    const context = await page.context();
+    const newPage = await context.newPage();
+    await newPage.setContent('<html><body><div style="height:100vh">Page 1</div><div style="height:100vh">Page 2</div></body></html>');
+    await newPage.pdf({ path: dummyPdfPath });
+    await newPage.close();
   }
 
   // 1. Go to the page
   await page.goto('/');
 
   // 2. Wait for initial PDF render
-  // The frontend outputs 'PDF rendered, scroll restored to: ...' to the console when done.
-  await page.waitForEvent('console', msg => msg.text().includes('PDF rendered'));
+  await page.waitForSelector('.page-container');
 
-  // Ensure canvas is attached
-  const canvas = page.locator('canvas').first();
-  await expect(canvas).toBeVisible();
+  // 3. Navigate to page 2
+  await page.click('#nav-right');
+  await expect(page).toHaveURL(/.*#page=2/);
 
-  // Force body to be tall enough to scroll
-  await page.evaluate(() => {
-    document.body.style.minHeight = '2000px';
-  });
-
-  // 3. Scroll down
-  // Evaluate scroll in browser
-  await page.evaluate(() => {
-    window.scrollTo(0, 500);
-  });
-
-  // Verify scroll was applied
-  let scrollY = await page.evaluate(() => window.scrollY);
-  expect(scrollY).toBe(500);
-
-  // 4. Modify the PDF file to trigger reload
-  // Wait for the NEXT 'PDF rendered' console message which indicates the reload is complete
-  const renderPromise = page.waitForEvent('console', msg => msg.text().includes('PDF rendered'));
-  
-  console.log('Modifying dummy.pdf...');
+  // 4. Modify the PDF file to trigger reload via SSE
+  console.log('Modifying dummy.pdf to trigger SSE reload...');
   fs.appendFileSync(dummyPdfPath, ' ');
 
-  // Wait for the re-render to complete
-  await renderPromise;
+  // Wait for the DOM to update (container gets cleared and recreated)
+  // We can just wait for the network or a short timeout, and verify the hash remains
+  await page.waitForTimeout(1500);
 
-  // 5. Verify scroll position was maintained
-  scrollY = await page.evaluate(() => window.scrollY);
-  expect(scrollY).toBe(500);
+  // 5. Verify page hash was maintained
+  await expect(page).toHaveURL(/.*#page=2/);
+  
+  // Verify that the rendered container is still page 2
+  const page2 = page.locator('.page-container[data-page-num="2"]');
+  await expect(page2).toBeVisible();
 });
 
 test.use({ deviceScaleFactor: 2 });
@@ -59,23 +47,20 @@ test('Canvas resolution scales with devicePixelRatio', async ({ page }) => {
   }
 
   await page.goto('/');
-  await page.waitForEvent('console', msg => msg.text().includes('PDF rendered'));
+  await page.waitForSelector('.page-container');
 
   const canvas = page.locator('canvas').first();
   await expect(canvas).toBeVisible();
 
   // Evaluate the canvas properties
-  const { width, styleWidth } = await canvas.evaluate((node: HTMLCanvasElement) => {
+  const { width, clientWidth } = await canvas.evaluate((node: HTMLCanvasElement) => {
     return {
       width: node.width,
-      styleWidth: node.style.width
+      clientWidth: node.clientWidth
     };
   });
 
-  // styleWidth should be in format "123px"
-  const cssWidth = parseInt(styleWidth.replace('px', ''), 10);
-  
-  // The physical width should be 2x the CSS width since deviceScaleFactor is 2
-  expect(width).toBeGreaterThan(cssWidth);
-  expect(Math.round(width / cssWidth)).toBe(2);
+  // The physical width should be 2x the client width since deviceScaleFactor is 2
+  expect(width).toBeGreaterThan(clientWidth);
+  expect(Math.round(width / clientWidth)).toBe(2);
 });

@@ -1,5 +1,6 @@
 import * as pdfjsLib from 'pdfjs-dist';
 
+// Disable native scroll restoration
 if ('scrollRestoration' in history) {
   history.scrollRestoration = 'manual';
 }
@@ -18,73 +19,49 @@ type ZoomMode = '100' | 'width' | 'height';
 let zoomMode: ZoomMode = (localStorage.getItem('zoomMode') as ZoomMode) || 'width';
 let currentPageIndex = 0;
 let pdfDocument: pdfjsLib.PDFDocumentProxy | null = null;
-const pageContainers: HTMLDivElement[] = [];
 
-const visiblePages = new Map<number, number>();
-let ignoreObserverUntil = 0;
+const prefetchCache = new Map<number, Promise<HTMLDivElement | null>>();
 
-// For tracking the current page
-const visibilityObserver = new IntersectionObserver((entries) => {
-  entries.forEach(entry => {
-    const pageNumStr = (entry.target as HTMLElement).dataset.pageNum;
-    if (pageNumStr) {
-      const index = parseInt(pageNumStr) - 1;
-      visiblePages.set(index, entry.intersectionRatio);
-    }
-  });
-
-  let maxRatio = -1;
-  let bestIndex = currentPageIndex;
+/**
+ * Creates and renders a page into a new div.
+ * Does NOT attach it to the DOM.
+ */
+async function createPageElement(pageNum: number): Promise<HTMLDivElement | null> {
+  if (!pdfDocument) return null;
   
-  visiblePages.forEach((ratio, index) => {
-    if (ratio > maxRatio) {
-      maxRatio = ratio;
-      bestIndex = index;
-    }
-  });
-
-  if (Date.now() > ignoreObserverUntil && maxRatio > 0 && bestIndex !== currentPageIndex) {
-    currentPageIndex = bestIndex;
-    history.replaceState(null, '', `#page=${currentPageIndex + 1}`);
-  }
-}, { threshold: [0, 0.1, 0.25, 0.5, 0.75, 0.9, 1.0] });
-
-// For triggering render (preload adjacent pages)
-const renderObserver = new IntersectionObserver((entries) => {
-  entries.forEach(entry => {
-    const div = entry.target as HTMLDivElement;
-    if (entry.isIntersecting) {
-      renderPageInDiv(div);
-    } else {
-      unmountPageInDiv(div);
-    }
-  });
-}, { rootMargin: '100% 0px' });
-
-async function renderPageInDiv(div: HTMLDivElement) {
-  const data = div as any;
-  if (data._hasRendered || data._isRendering) return;
-  data._isRendering = true;
-
   try {
-    const page = data._page;
-    const viewport = data._viewport;
+    const page = await pdfDocument.getPage(pageNum);
+    
+    let scale = 1.5;
+    if (zoomMode === 'width' || zoomMode === 'height') {
+      const baseViewport = page.getViewport({ scale: 1.0 });
+      if (zoomMode === 'height') {
+        scale = window.innerHeight / baseViewport.height;
+      } else {
+        scale = document.documentElement.clientWidth / baseViewport.width;
+      }
+    }
+    const viewport = page.getViewport({ scale });
     const outputScale = window.devicePixelRatio || 1;
+
+    const pageDiv = document.createElement('div');
+    pageDiv.className = 'page-container';
+    pageDiv.dataset.pageNum = pageNum.toString();
+    pageDiv.style.width = Math.floor(viewport.width) + "px";
+    pageDiv.style.height = Math.floor(viewport.height) + "px";
 
     const canvas = document.createElement('canvas');
     const context = canvas.getContext('2d');
-    if (!context) return;
+    if (!context) return null;
 
     canvas.width = Math.floor(viewport.width * outputScale);
     canvas.height = Math.floor(viewport.height * outputScale);
-    // Fill the placeholder
     canvas.style.width = "100%";
     canvas.style.height = "100%";
 
     const transform = outputScale !== 1 ? [outputScale, 0, 0, outputScale, 0, 0] : null;
 
-    div.innerHTML = ''; // clear placeholder text/spinner if any
-    div.appendChild(canvas);
+    pageDiv.appendChild(canvas);
 
     await page.render({
       canvasContext: context,
@@ -92,22 +69,55 @@ async function renderPageInDiv(div: HTMLDivElement) {
       viewport: viewport
     }).promise;
 
-    data._hasRendered = true;
+    return pageDiv;
   } catch (err) {
-    console.error('Error rendering page:', err);
-  } finally {
-    data._isRendering = false;
+    console.error(`Error rendering page ${pageNum}:`, err);
+    return null;
   }
 }
 
-function unmountPageInDiv(div: HTMLDivElement) {
-  const data = div as any;
-  if (data._hasRendered) {
-    div.innerHTML = ''; // clear canvas to free GPU memory
-    data._hasRendered = false;
+/**
+ * Retrieves a page element from the prefetch cache, or creates it if not found.
+ */
+async function getPageElement(pageNum: number): Promise<HTMLDivElement | null> {
+  if (prefetchCache.has(pageNum)) {
+    const cachedPromise = prefetchCache.get(pageNum);
+    prefetchCache.delete(pageNum);
+    return cachedPromise || null;
+  }
+  return createPageElement(pageNum);
+}
+
+/**
+ * Renders adjacent pages in the background.
+ */
+function prefetchAdjacentPages() {
+  if (!pdfDocument) return;
+
+  const prev = currentPageIndex; // 1-based page is prev
+  const next = currentPageIndex + 2; // 1-based page is next
+
+  // Clean up cache: remove anything that isn't prev or next
+  for (const key of Array.from(prefetchCache.keys())) {
+    if (key !== prev && key !== next) {
+      prefetchCache.delete(key);
+    }
+  }
+
+  // Prefetch previous page
+  if (prev >= 1 && !prefetchCache.has(prev)) {
+    prefetchCache.set(prev, createPageElement(prev));
+  }
+
+  // Prefetch next page
+  if (next <= pdfDocument.numPages && !prefetchCache.has(next)) {
+    prefetchCache.set(next, createPageElement(next));
   }
 }
 
+/**
+ * Loads the document and renders the current page.
+ */
 async function renderPdf() {
   if (!container) return;
   if (isRendering) return;
@@ -118,79 +128,48 @@ async function renderPdf() {
     const loadingTask = pdfjsLib.getDocument({ url: urlWithCacheBuster });
     pdfDocument = await loadingTask.promise;
     
+    // Clear cache because the PDF or zoom may have changed
+    prefetchCache.clear();
+
     // Read the page from hash if available, otherwise use currentPageIndex
     const hashMatch = window.location.hash.match(/#page=(\d+)/);
     const hashPage = hashMatch ? parseInt(hashMatch[1]) - 1 : currentPageIndex;
-    const savedIndex = Math.max(0, Math.min(hashPage, pdfDocument.numPages - 1));
+    currentPageIndex = Math.max(0, Math.min(hashPage, pdfDocument.numPages - 1));
+    history.replaceState(null, '', `#page=${currentPageIndex + 1}`);
 
-    // Disconnect observers
-    visibilityObserver.disconnect();
-    renderObserver.disconnect();
-    pageContainers.length = 0;
-    container.innerHTML = '';
-
-    const fragment = document.createDocumentFragment();
-
-    // Fetch all pages to get dimensions (fast)
-    const pagePromises = [];
-    for (let pageNum = 1; pageNum <= pdfDocument.numPages; pageNum++) {
-      pagePromises.push(pdfDocument.getPage(pageNum));
-    }
-    const pages = await Promise.all(pagePromises);
-
-    // Create placeholders
-    pages.forEach((page, index) => {
-      let scale = 1.5;
-      if (zoomMode === 'width' || zoomMode === 'height') {
-        const baseViewport = page.getViewport({ scale: 1.0 });
-        if (zoomMode === 'height') {
-          scale = window.innerHeight / baseViewport.height;
-        } else {
-          scale = document.documentElement.clientWidth / baseViewport.width;
-        }
-      }
-      const viewport = page.getViewport({ scale });
-
-      const pageDiv = document.createElement('div');
-      pageDiv.className = 'page-container';
-      pageDiv.dataset.pageNum = (index + 1).toString();
-      
-      // Explicit dimensions to maintain scroll space
-      pageDiv.style.width = Math.floor(viewport.width) + "px";
-      pageDiv.style.height = Math.floor(viewport.height) + "px";
-      
-      const data = pageDiv as any;
-      data._viewport = viewport;
-      data._page = page;
-      data._isRendering = false;
-      data._hasRendered = false;
-
-      pageContainers.push(pageDiv);
-      fragment.appendChild(pageDiv);
-    });
-    
-    container.appendChild(fragment);
-
-    // Ignore observer updates temporarily while the browser handles DOM updates & scroll jumps
-    ignoreObserverUntil = Date.now() + 500;
-
-    // Observe all placeholders
-    pageContainers.forEach(div => {
-      visibilityObserver.observe(div);
-      renderObserver.observe(div);
-    });
-
-    // Restore scroll position
-    if (pageContainers[savedIndex]) {
-      pageContainers[savedIndex].scrollIntoView({ behavior: 'instant', block: 'center', inline: 'center' });
-      currentPageIndex = savedIndex;
-    } else if (pageContainers.length > 0) {
-      pageContainers[0].scrollIntoView({ behavior: 'instant', block: 'start', inline: 'center' });
-      currentPageIndex = 0;
+    const newDiv = await getPageElement(currentPageIndex + 1);
+    if (newDiv) {
+      container.innerHTML = '';
+      container.appendChild(newDiv);
     }
 
+    prefetchAdjacentPages();
   } catch (err) {
     console.error('Error fetching PDF:', err);
+  } finally {
+    isRendering = false;
+  }
+}
+
+/**
+ * Navigates to a specific page using double buffering and prefetching.
+ */
+async function goToPage(newIndex: number) {
+  if (!container || !pdfDocument || isRendering) return;
+  if (newIndex < 0 || newIndex >= pdfDocument.numPages || newIndex === currentPageIndex) return;
+
+  isRendering = true;
+  currentPageIndex = newIndex;
+  history.replaceState(null, '', `#page=${currentPageIndex + 1}`);
+
+  try {
+    const newDiv = await getPageElement(currentPageIndex + 1);
+    // Double buffering: only replace the DOM when the new page is completely rendered
+    if (newDiv) {
+      container.innerHTML = '';
+      container.appendChild(newDiv);
+    }
+    prefetchAdjacentPages();
   } finally {
     isRendering = false;
   }
@@ -199,16 +178,17 @@ async function renderPdf() {
 // Initial render
 renderPdf();
 
+// === UI Controls ===
+
 const btnFab = document.getElementById('btn-fab');
 const zoomMenu = document.getElementById('zoom-menu');
 const zoomOptions = document.querySelectorAll('.zoom-option');
+const btnFullscreen = document.getElementById('btn-fullscreen');
 
 btnFab?.addEventListener('click', (e) => {
   e.stopPropagation();
   zoomMenu?.classList.toggle('hidden');
 });
-
-const btnFullscreen = document.getElementById('btn-fullscreen');
 
 btnFullscreen?.addEventListener('click', (e) => {
   e.stopPropagation();
@@ -224,10 +204,6 @@ btnFullscreen?.addEventListener('click', (e) => {
 });
 
 document.addEventListener('fullscreenchange', () => {
-  // Prevent the observer from incorrectly updating the URL hash if the browser 
-  // natively jumps the scroll position during the fullscreen transition.
-  ignoreObserverUntil = Date.now() + 1000;
-
   if (btnFullscreen) {
     const iconSpan = btnFullscreen.querySelector('.material-symbols-outlined');
     const textSpan = btnFullscreen.querySelector('.btn-text');
@@ -293,33 +269,16 @@ window.addEventListener('resize', () => {
   }, 300);
 });
 
+// Navigation
 const navLeft = document.getElementById('nav-left');
 const navRight = document.getElementById('nav-right');
 
-navLeft?.addEventListener('click', async () => {
-  const prevIndex = Math.max(0, currentPageIndex - 1);
-  const targetDiv = pageContainers[prevIndex];
-  if (!targetDiv) return;
-
-  // Double-buffering: Ensure the page is rendered before jumping
-  if (!(targetDiv as any)._hasRendered) {
-    await renderPageInDiv(targetDiv);
-  }
-  
-  targetDiv.scrollIntoView({ behavior: 'instant', block: 'center', inline: 'center' });
+navLeft?.addEventListener('click', () => {
+  goToPage(currentPageIndex - 1);
 });
 
-navRight?.addEventListener('click', async () => {
-  const nextIndex = Math.min(pageContainers.length - 1, currentPageIndex + 1);
-  const targetDiv = pageContainers[nextIndex];
-  if (!targetDiv) return;
-
-  // Double-buffering: Ensure the page is rendered before jumping
-  if (!(targetDiv as any)._hasRendered) {
-    await renderPageInDiv(targetDiv);
-  }
-  
-  targetDiv.scrollIntoView({ behavior: 'instant', block: 'center', inline: 'center' });
+navRight?.addEventListener('click', () => {
+  goToPage(currentPageIndex + 1);
 });
 
 // Listen for updates from the server
